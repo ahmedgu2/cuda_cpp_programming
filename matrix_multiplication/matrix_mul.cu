@@ -2,6 +2,8 @@
 #include <random>
 #include <chrono>
 
+#define TILE_DIM 16
+
 #define CUDA_CHECK_ERROR(callResult) do{ \
     cudaError_t error = callResult; \
     if(error != cudaSuccess){ \
@@ -90,8 +92,34 @@ void mmNaive_gpu(float *mat1, float *mat2, float *result, int nRows1, int nCols1
     }
 }
 
+__global__
+void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int N){ // TODO: make this handle arbitrary matrix size (not only NxN matrices)
+    __shared__ float mat1Tile[TILE_DIM][TILE_DIM];
+    __shared__ float mat2Tile[TILE_DIM][TILE_DIM];
+
+    int row = threadIdx.y + TILE_DIM * blockIdx.y;
+    int col = threadIdx.x + TILE_DIM * blockIdx.x;
+
+    if(row >= N || col >= N)
+        return;
+
+    float value = 0.f;
+
+    for(int tile = 0; tile < N / TILE_DIM; tile++){ // TODO: N / TILE_DIM assusmes N is a multiplier of TILE_DIM. Rewrite this for to handle the other case.
+        mat1Tile[threadIdx.y][threadIdx.x] = mat1[row * N + tile*TILE_DIM + threadIdx.x];
+        mat2Tile[threadIdx.y][threadIdx.x] = mat2[(tile * TILE_DIM + threadIdx.y) * N + col];
+        __syncthreads();
+
+        for(int k = 0; k < TILE_DIM; ++k)
+            value += mat1Tile[threadIdx.y][k] * mat2Tile[k][threadIdx.x];
+        __syncthreads();
+    }
+    result[row * N + col] = value;
+}
+
 int main(){
-    int nRows1 = 512, nRows2 = 256, nCols1 = 256, nCols2 = 512;
+    int nRows1 = 512, nRows2 = 512, nCols1 = 512, nCols2 = 512;
+    const int N = 512;
     float **mat1 = createMatrix(nRows1, nCols1);
     float **mat2 = createMatrix(nRows2, nCols2);
     float **result = createMatrix(nRows1, nCols2);
@@ -124,11 +152,12 @@ int main(){
     CUDA_CHECK_ERROR(cudaEventCreate(&end));
 
     // Launch Kernel
-    dim3 threadsPerBlock(32, 32);
+    dim3 threadsPerBlock(16, 16);
     dim3 numBlocks((nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x, (nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y);
     CUDA_CHECK_ERROR(cudaEventRecord(start));
 
-    mmNaive_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, nRows1, nCols1, nRows2, nCols2);
+    // mmNaive_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, nRows1, nCols1, nRows2, nCols2);
+    mmSharedTiles_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, N);
 
     CUDA_CHECK_ERROR(cudaEventRecord(end));
     CUDA_CHECK_ERROR(cudaEventSynchronize(end));
