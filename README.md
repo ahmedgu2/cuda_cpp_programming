@@ -15,3 +15,10 @@ Implementation of Cuda kernels.
 - Implemented **naive matrix multiplication**.
 - Refresher on C++ 2d arrays and dynamic memory allocation.
 - Benchmarked CPU vs GPU versions.
+
+### Day 3
+- Profiled the naive matrix multiplication (Nsight compute) and reduced runtime by 50% by tuning the number of threads per block (reduced threadsPerBlock from 32x32 to 16x16 and increased the number of blocks from 52 to 108 for better balancing of workload in SMs).
+- Implemented a small script to get the device propreties.
+- Finished reading PMPP Chapter 5.
+- Implemented tiled **matrix multiplication with shared memory**.
+- Benchmarked `mmSharedTile_gpu` with the CPU and naive GPU version.
