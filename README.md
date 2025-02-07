@@ -1,5 +1,10 @@
-# cudaKernels
-Implementation of Cuda kernels.
+# CUDA C/C++ Programming
+This is a 100 days challenge to master CUDA C/C++ programming. 
+I'll be also learning new C++ language features (C++ 14/17/20) and experimenting with them when possible.
+
+### Resources:
+- Programming Massively Parallel Processors 4th edition by David Kirk and Wen-mei Hwu.
+- [Oak Ridge x Nvidia CUDA Training series](https://www.olcf.ornl.gov/cuda-training-series/)
 
 # Progress
 ### Day 1 
