@@ -27,3 +27,7 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Finished reading PMPP Chapter 5.
 - Implemented tiled **matrix multiplication with shared memory**.
 - Benchmarked `mmSharedTile_gpu` with the CPU and naive GPU version.
+
+### Day 4:
+- Re-read some parts of Chapter 4-5.
+- Modified `mmSharedTile_gpu()` to handle arbitrary matrix width (`N` does have to be divsible by `TILE_DIM`).

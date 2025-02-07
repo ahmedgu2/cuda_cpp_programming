@@ -100,26 +100,30 @@ void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int N){ //
     int row = threadIdx.y + TILE_DIM * blockIdx.y;
     int col = threadIdx.x + TILE_DIM * blockIdx.x;
 
-    if(row >= N || col >= N)
-        return;
-
     float value = 0.f;
 
-    for(int tile = 0; tile < N / TILE_DIM; tile++){ // TODO: N / TILE_DIM assusmes N is a multiplier of TILE_DIM. Rewrite this for to handle the other case.
-        mat1Tile[threadIdx.y][threadIdx.x] = mat1[row * N + tile*TILE_DIM + threadIdx.x];
-        mat2Tile[threadIdx.y][threadIdx.x] = mat2[(tile * TILE_DIM + threadIdx.y) * N + col];
+    for(int tile = 0; tile < ceil(N / (float)TILE_DIM); tile++){ 
+        if((row < N) && (tile * TILE_DIM + threadIdx.x) < N)
+            mat1Tile[threadIdx.y][threadIdx.x] = mat1[row * N + tile * TILE_DIM + threadIdx.x];
+        else
+            mat1Tile[threadIdx.y][threadIdx.x] = 0.f;
+        if((col < N) && (tile * TILE_DIM + threadIdx.y) < N)
+            mat2Tile[threadIdx.y][threadIdx.x] = mat2[(tile * TILE_DIM + threadIdx.y) * N + col];
+        else
+            mat2Tile[threadIdx.y][threadIdx.x] = 0.f;
         __syncthreads();
 
         for(int k = 0; k < TILE_DIM; ++k)
             value += mat1Tile[threadIdx.y][k] * mat2Tile[k][threadIdx.x];
         __syncthreads();
     }
-    result[row * N + col] = value;
+    if(row < N && col < N)
+        result[row * N + col] = value;
 }
 
 int main(){
-    int nRows1 = 512, nRows2 = 512, nCols1 = 512, nCols2 = 512;
-    const int N = 512;
+    int nRows1 = 500, nRows2 = 500, nCols1 = 500, nCols2 = 500;
+    const int N = 500;
     float **mat1 = createMatrix(nRows1, nCols1);
     float **mat2 = createMatrix(nRows2, nCols2);
     float **result = createMatrix(nRows1, nCols2);
@@ -152,7 +156,7 @@ int main(){
     CUDA_CHECK_ERROR(cudaEventCreate(&end));
 
     // Launch Kernel
-    dim3 threadsPerBlock(16, 16);
+    dim3 threadsPerBlock(16, 16); // number of threads per dimension needs to be equal to TILE_DIM.
     dim3 numBlocks((nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x, (nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y);
     CUDA_CHECK_ERROR(cudaEventRecord(start));
 
