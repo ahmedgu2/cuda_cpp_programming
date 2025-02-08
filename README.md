@@ -31,3 +31,8 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 ### Day 4:
 - Re-read some parts of Chapter 4-5.
 - Modified `mmSharedTile_gpu()` to handle arbitrary matrix width (`N` does have to be divsible by `TILE_DIM`).
+
+### Day 5:
+- Worked on some of the exercies of Chapter 5.
+- Started reading Chapter 6.
+- Modified `mmSharedTile_gpu()` to handle arbitrary matrix size (nRows != nCols)
