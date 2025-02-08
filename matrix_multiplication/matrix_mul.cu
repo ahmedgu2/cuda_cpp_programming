@@ -93,7 +93,7 @@ void mmNaive_gpu(float *mat1, float *mat2, float *result, int nRows1, int nCols1
 }
 
 __global__
-void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int N){ // TODO: make this handle arbitrary matrix size (not only NxN matrices)
+void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int nRows1, const int nCols1, const int nCols2){ // TODO: make this handle arbitrary matrix size (not only NxN matrices)
     __shared__ float mat1Tile[TILE_DIM][TILE_DIM];
     __shared__ float mat2Tile[TILE_DIM][TILE_DIM];
 
@@ -102,13 +102,13 @@ void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int N){ //
 
     float value = 0.f;
 
-    for(int tile = 0; tile < ceil(N / (float)TILE_DIM); tile++){ 
-        if((row < N) && (tile * TILE_DIM + threadIdx.x) < N)
-            mat1Tile[threadIdx.y][threadIdx.x] = mat1[row * N + tile * TILE_DIM + threadIdx.x];
+    for(int tile = 0; tile < nCols1 / (float)TILE_DIM; tile++){ 
+        if((row < nRows1) && (tile * TILE_DIM + threadIdx.x) < nCols1)
+            mat1Tile[threadIdx.y][threadIdx.x] = mat1[row * nCols1 + tile * TILE_DIM + threadIdx.x];
         else
             mat1Tile[threadIdx.y][threadIdx.x] = 0.f;
-        if((col < N) && (tile * TILE_DIM + threadIdx.y) < N)
-            mat2Tile[threadIdx.y][threadIdx.x] = mat2[(tile * TILE_DIM + threadIdx.y) * N + col];
+        if((col < nCols2) && (tile * TILE_DIM + threadIdx.y) < nCols1) // We use nCols1 as it's equal to nRows2
+            mat2Tile[threadIdx.y][threadIdx.x] = mat2[(tile * TILE_DIM + threadIdx.y) * nCols2 + col];
         else
             mat2Tile[threadIdx.y][threadIdx.x] = 0.f;
         __syncthreads();
@@ -117,13 +117,12 @@ void mmSharedTiles_gpu(float *mat1, float *mat2, float *result, const int N){ //
             value += mat1Tile[threadIdx.y][k] * mat2Tile[k][threadIdx.x];
         __syncthreads();
     }
-    if(row < N && col < N)
-        result[row * N + col] = value;
+    if(row < nRows1 && col < nCols2)
+        result[row * nCols2 + col] = value;
 }
 
 int main(){
-    int nRows1 = 500, nRows2 = 500, nCols1 = 500, nCols2 = 500;
-    const int N = 500;
+    int nRows1 = 512, nRows2 = 500, nCols1 = 500, nCols2 = 1024;
     float **mat1 = createMatrix(nRows1, nCols1);
     float **mat2 = createMatrix(nRows2, nCols2);
     float **result = createMatrix(nRows1, nCols2);
@@ -157,11 +156,11 @@ int main(){
 
     // Launch Kernel
     dim3 threadsPerBlock(16, 16); // number of threads per dimension needs to be equal to TILE_DIM.
-    dim3 numBlocks((nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x, (nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    dim3 numBlocks((nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y, (nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x);
     CUDA_CHECK_ERROR(cudaEventRecord(start));
 
     // mmNaive_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, nRows1, nCols1, nRows2, nCols2);
-    mmSharedTiles_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, N);
+    mmSharedTiles_gpu<<<numBlocks, threadsPerBlock>>>(d_mat1, d_mat2, d_result, nRows1, nCols1, nCols2);
 
     CUDA_CHECK_ERROR(cudaEventRecord(end));
     CUDA_CHECK_ERROR(cudaEventSynchronize(end));
