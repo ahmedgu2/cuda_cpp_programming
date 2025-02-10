@@ -36,3 +36,13 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Worked on some of the exercies of Chapter 5.
 - Started reading Chapter 6.
 - Modified `mmSharedTile_gpu()` to handle arbitrary matrix size (nRows != nCols)
+
+### Day 6:
+- Continued reading Chapter 6.
+- Started reading about gaussian blur and implementing it.
+- Implemented the 2D version of normal distribution density function `normal_pdf_gpu()` and `normal_pdf_cpu()` 
+
+### Day 7: 
+- Finished implementing gaussian blur on cpu. Used the "edge expension" padding strategy.
+- Created some testing code to compare outputs with `cv2` outputs (in python).
+- Refresher on `fstream` in C++.
