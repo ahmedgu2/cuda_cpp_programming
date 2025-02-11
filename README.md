@@ -46,3 +46,7 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Finished implementing gaussian blur on cpu. Used the "edge expension" padding strategy.
 - Created some testing code to compare outputs with `cv2` outputs (in python).
 - Refresher on `fstream` in C++.
+
+### Day 8:
+- Implemented a naive version of gaussian blur on gpu.
+- Had a refresher on `atomicAdd()` and `cudaDeviceSynchronize()`.
