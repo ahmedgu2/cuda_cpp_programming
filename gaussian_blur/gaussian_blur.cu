@@ -97,8 +97,8 @@ void convoluteNaive_gpu(float *result, float *mat, const int nRows, const int nC
 
         for(int i = -k; i <= k; ++i){
             for(int j = -k; j <= k; ++j){
-                int curRow = clamp(row - i, 0, nRows);
-                int curCol = clamp(col - j, 0, nCols);
+                int curRow = clamp(row + i, 0, nRows - 1);
+                int curCol = clamp(col + j, 0, nCols - 1);
                 result[indx] += mat[curRow * nCols + curCol] * kernel[(i + k) * kernelSize + (j + k)];
             }
         }
@@ -143,7 +143,15 @@ void gaussianBlur_gpu(
     CUDA_KERNEL_CHECK_ERROR();
 
     CUDA_CHECK_ERROR(cudaMemcpy(result, d_result, nRows * nCols * sizeof(float), cudaMemcpyDeviceToHost));
-    // cudaMemcpy(result, d_result, nRows * nCols * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // float *kernel = new float[kernelSize * kernelSize];
+    // CUDA_CHECK_ERROR(cudaMemcpy(kernel, d_kernel, kernelSize * kernelSize * sizeof(float), cudaMemcpyDeviceToHost));
+    // printMatrix(kernel, kernelSize, kernelSize);
+    // std::cout << " ######################### \n";
+    // printMatrix(mat, nRows, nCols);
+    // std::cout << " ######################### \n";
+    // printMatrix(result, nRows, nCols);
+    // delete[] kernel;
 
     cudaFree(d_mat);
     cudaFree(d_kernel);
@@ -153,14 +161,14 @@ void gaussianBlur_gpu(
 
 int main(){
 
-    int nRows = 1024, nCols = 512;
+    int nRows = 8, nCols = 8;
     int kernelSize = 3;
     float *mat = new float[nRows * nCols];
     float *result = new float[nRows * nCols];
+
     initMatrix(mat, nRows, nCols);
 
     gaussianBlur_gpu(mat, result, nRows, nCols, kernelSize);
-    std::cout << "a" << std::endl;
 
     delete[] mat;
     delete[] result;
