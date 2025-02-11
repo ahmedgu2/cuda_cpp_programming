@@ -50,3 +50,4 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 ### Day 8:
 - Implemented a naive version of gaussian blur on gpu.
 - Had a refresher on `atomicAdd()` and `cudaDeviceSynchronize()`.
+- Something weird: Random init using `std::mt19937(seed)` yielded different results when I compile .cu and .cpp files containing the same init function. Is this due to different compilers / flags used for g++ vs nvcc? Need to investigate more.
