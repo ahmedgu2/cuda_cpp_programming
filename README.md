@@ -51,3 +51,8 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Implemented a naive version of gaussian blur on gpu.
 - Had a refresher on `atomicAdd()` and `cudaDeviceSynchronize()`.
 - Something weird: Random init using `std::mt19937(seed)` yielded different results when I compile .cu and .cpp files containing the same init function. Is this due to different compilers / flags used for g++ vs nvcc? Need to investigate more.
+
+### Day 9:
+- Read Chapter 7 about convolutions.
+- Optimized the gaussian blur by storing the kernel in constant memory for efficient use of cache and higher performance.
+- Started incorporating the tiling technique with shared memory to address memory bandwith bottlenecks.
