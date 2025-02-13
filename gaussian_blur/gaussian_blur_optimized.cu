@@ -4,6 +4,7 @@
 #include <random>
 
 #define KERNEL_SIZE 7
+#define TILE_DIM 32
 __constant__ float kernel[KERNEL_SIZE * KERNEL_SIZE];
 
 
@@ -80,13 +81,30 @@ int clamp(const int x, const int min, const int max){
 __global__ 
 void convoluteOptimized_gpu(float *result, float *mat, const int nRows, const int nCols){
     // We're using edge expension padding, so dimension of result and mat are equal.
+    __shared__ float tile[TILE_DIM + KERNEL_SIZE - 1][TILE_DIM + KERNEL_SIZE - 1];
     int col = threadIdx.x + blockIdx.x * blockDim.x;
     int row = threadIdx.y + blockIdx.y * blockDim.y;
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+    
+    int k = (KERNEL_SIZE - 1) / 2;
+    // Shared memory indices
+    int shared_x = tx + k;
+    int shared_y = ty + k;
+
+    // Load tile in shared memory
+    if(row < nRows && col < nCols){
+        tile[shared_y][shared_x] = mat[row * nCols + col];
+    }else{
+        int clampedCol = clamp(col, 0, nCols - 1);
+        int clampedRow = clamp(row, 0, nRows);
+        tile[ty][tx] = mat[clampedRow * nCols + clampedCol];
+    }
+    __syncthreads();
+
 
     if(row < nRows && col < nCols){
-        int k = (KERNEL_SIZE - 1) / 2;
         int indx = row * nCols + col;
-        
         result[indx] = 0;
 
         for(int i = -k; i <= k; ++i){
@@ -121,7 +139,7 @@ void gaussianBlurOptimized_gpu(
     CUDA_CHECK_ERROR(cudaMemcpy(d_mat, mat, nRows * nCols * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK_ERROR(cudaMemcpyToSymbol(kernel, h_kernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float)));
 
-    dim3 threadsPerBlock(16, 16);
+    dim3 threadsPerBlock(TILE_DIM, TILE_DIM);
     dim3 numBlocks((nCols + threadsPerBlock.x - 1) / threadsPerBlock.x, (nRows + threadsPerBlock.y - 1) / threadsPerBlock.y);
     convoluteOptimized_gpu<<<numBlocks, threadsPerBlock>>>(d_result, d_mat, nRows, nCols);
     CUDA_KERNEL_CHECK_ERROR();
