@@ -60,4 +60,7 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 ### Day 10:
 - Finished reading Chapter 7.
 - Finished Optimizing gaussian blur using tiling and shared memory.
+
+### Day 11:
 - Implemented some activation functions for 2D matrices: relu, sigmoid and tanh.
+- Re-read Chapter 6 and 7.
