@@ -56,3 +56,8 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Read Chapter 7 about convolutions.
 - Optimized the gaussian blur by storing the kernel in constant memory for efficient use of cache and higher performance.
 - Started incorporating the tiling technique with shared memory to address memory bandwith bottlenecks.
+
+### Day 10:
+- Finished reading Chapter 7.
+- Finished Optimizing gaussian blur using tiling and shared memory.
+- Implemented some activation functions for 2D matrices: relu, sigmoid and tanh.
