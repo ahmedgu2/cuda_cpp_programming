@@ -51,7 +51,7 @@ void sigmoid(float *mat, float *result, const int nRows, const int nCols){
     int indx = row * nCols + col;
 
     if(col < nCols && row < nRows){
-        result[indx] = 1 / expf(-mat[indx]);
+        result[indx] = 1 / (1 + expf(-mat[indx]));
     }
 }
 
