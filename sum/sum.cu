@@ -83,9 +83,34 @@ void simpleSumReductionV2_gpu(float *input, const int length, float *output){
     }
 }
 
+__global__
+void sumReductionSharedMultiSegment_gpu(float *input, const int length, float *output){
+    /**
+     * Uses shared memory for reducing global memory read => better performance.input
+     * Generlizes the sum to handle more than on block (i.e. arbitrary array size).
+     */
+    extern __shared__ float input_s[];
+    const uint32_t t = threadIdx.x;
+    const int segment = 2 * blockDim.x;
+    const uint32_t indx = threadIdx.x + segment * blockIdx.x;
+
+    input_s[t] = input[indx] + input[indx + blockDim.x];
+
+    for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
+        // Wait for all threads to load into shared memory
+        __syncthreads();
+        if(t < stride){
+            input_s[t] += input_s[t + stride];
+        }
+    }
+    if(t == 0){
+        atomicAdd(output, input_s[0]);
+    }
+}
+
 
 int main(){
-    const int length = 8;
+    const int length = 5096;
     float *input = new float[length];
     float sum_cpu_result, sum_gpu_result;
     float *d_input, *d_sum_gpu_result;
@@ -99,14 +124,17 @@ int main(){
     // Allocate GPU memory
     CUDA_CHECK_ERROR(cudaMalloc(&d_input, length * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_sum_gpu_result, sizeof(float)));
+// Before launching the kernel, add:
+    CUDA_CHECK_ERROR(cudaMemset(d_sum_gpu_result, 0, sizeof(float)));
 
     // Copy input data to GPU
     CUDA_CHECK_ERROR(cudaMemcpy(d_input, input, length * sizeof(float), cudaMemcpyHostToDevice));
 
     // Launch kernel
-    // Since we're using threadIdx.x * 2 in the kernel, we need length/2 threads
-    int numThreads = length / 2;
-    simpleSumReductionV2_gpu<<<1, numThreads>>>(d_input, length, d_sum_gpu_result);
+    int numThreads = 256;
+    int numBlocks = (length + numThreads - 1) / numThreads;
+    size_t sharedMemorySize = numThreads * sizeof(float);
+    sumReductionSharedMultiSegment_gpu<<<numBlocks, numThreads, sharedMemorySize>>>(d_input, length, d_sum_gpu_result);
     CUDA_KERNEL_CHECK_ERROR();
 
     // Copy result back to host

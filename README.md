@@ -66,6 +66,10 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Re-read Chapter 6 and 7.
 
 ### Day 12: 
-- Started reading Chapter 9 about redaction patterns.
+- Started reading Chapter 10 about redaction patterns.
 - Implemented simple sum redaction `simpleSumReduction_gpu()` that handles arrays that fit only in 1 block.
 - Implemented `simpleSumReductionV2_gpu()` which uses a better thread assignement strategy for better execution resource utlization and less control divergence.
+
+### Day 13:
+- Finished reading Chapter 10.
+- Optimized sum reduction by implementing `sumReductionSharedMultiSegment_gpu()` which uses shared memory for load time reduction and generlizes to arbitrary sized arrays (i.e. not limited by 1 block).
