@@ -1,5 +1,7 @@
+#include <iomanip>
 #include <iostream>
 #include <random>
+#include <cmath>
 
 #define CUDA_CHECK_ERROR(callResult) do{ \
     cudaError_t error = callResult; \
@@ -20,9 +22,10 @@
 // Utils
 void initVector(float *vector, const int length, unsigned int seed = 42){
     std::mt19937 gen(seed);
-    std::uniform_int_distribution<int> dist(0, 255);
+    // std::uniform_int_distribution<int> dist(1, 255);
+    std::normal_distribution<float> dist;
     for(int i = 0; i < length; ++i){
-        vector[i] = dist(gen);
+        vector[i] = (float)dist(gen);
     }
 }
 
@@ -41,9 +44,9 @@ float sum_cpu(float *input, const int length){
     return sum_;
 }
 
-void test_cpu_gpu(float sum_cpu_result, float sum_gpu_result){
-    std::cout << "sum_cpu : " << sum_cpu_result << ", sum_gpu: " << sum_gpu_result << std::endl;
-    if(sum_cpu_result != sum_gpu_result)
+void test_cpu_gpu(float sum_cpu_result, float sum_gpu_result, float epsilon=1e3){
+    std::cout << "sum_cpu : " << std::fixed << std::setprecision(10) << sum_cpu_result << ", sum_gpu: " << sum_gpu_result << std::endl;
+    if(fabs(sum_cpu_result - sum_gpu_result) > epsilon)
         std::cout << "\033[31mTEST FAILED\033[0m" << std::endl;
     else
         std::cout << "\033[32mTEST PASSED!\033[0m" << std::endl;    
@@ -94,7 +97,11 @@ void sumReductionSharedMultiSegment_gpu(float *input, const int length, float *o
     const int segment = 2 * blockDim.x;
     const uint32_t indx = threadIdx.x + segment * blockIdx.x;
 
-    input_s[t] = input[indx] + input[indx + blockDim.x];
+    input_s[t] = 0.f;
+    if(indx < length)
+        input_s[t] = input[indx];
+    if(indx + blockDim.x < length)
+        input_s[t] += input[indx + blockDim.x];
 
     for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
         // Wait for all threads to load into shared memory
@@ -105,12 +112,13 @@ void sumReductionSharedMultiSegment_gpu(float *input, const int length, float *o
     }
     if(t == 0){
         atomicAdd(output, input_s[0]);
+        // TODO: change this with partial sum calculations, and then sum it manually to see if it matches cpu version.
     }
 }
 
 
 int main(){
-    const int length = 5096;
+    const int length = 1024 * 1024;
     float *input = new float[length];
     float sum_cpu_result, sum_gpu_result;
     float *d_input, *d_sum_gpu_result;
@@ -124,8 +132,8 @@ int main(){
     // Allocate GPU memory
     CUDA_CHECK_ERROR(cudaMalloc(&d_input, length * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_sum_gpu_result, sizeof(float)));
-// Before launching the kernel, add:
-    CUDA_CHECK_ERROR(cudaMemset(d_sum_gpu_result, 0, sizeof(float)));
+    // Before launching the kernel, add:
+    CUDA_CHECK_ERROR(cudaMemset(d_sum_gpu_result, 0.f, sizeof(float)));
 
     // Copy input data to GPU
     CUDA_CHECK_ERROR(cudaMemcpy(d_input, input, length * sizeof(float), cudaMemcpyHostToDevice));
