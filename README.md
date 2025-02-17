@@ -73,3 +73,7 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 ### Day 13:
 - Finished reading Chapter 10.
 - Optimized sum reduction by implementing `sumReductionSharedMultiSegment_gpu()` which uses shared memory for load time reduction and generlizes to arbitrary sized arrays (i.e. not limited by 1 block).
+
+### DAY 14:
+- Read about precision loss for parallel reduction sum. Floating point sum yields different results depending on the algorithm, e.g. sequential sum (cpu version) results != Hierarchical reduction sum (gpu version) results.
+- Added an integer version of the kernel which yields the exact same result as the cpu version.
