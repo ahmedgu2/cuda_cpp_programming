@@ -66,6 +66,43 @@ void maxArray_gpu(float *array, const int size, float *blocksMax){
         blocksMax[blockIdx.x] = max_s[0];
 }
 
+__global__
+void expArray(float *array, const int size, float *output){
+    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < size; indx += gridDim.x * blockDim.x){
+        output[indx] = expf(array[indx]);
+    }
+}
+
+__global__
+void sumArray(float *array, const int size, float *output){
+    const int t = threadIdx.x;
+    const int segment = 2 * blockDim.x;
+    const int indx = threadIdx.x + segment * blockIdx.x;
+    extern __shared__ float sum_s[];
+
+    if(indx < size)
+        sum_s[t] = array[indx];
+    if(indx + blockDim.x < size)
+        sum_s[t] += array[indx + blockDim.x];
+
+    for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
+        __syncthreads();
+        if(t < stride)
+            sum_s[t] += sum_s[t + stride];
+    }
+    if(t == 0)
+        *output = sum_s[0];
+}
+
+__global__
+void substractArray(float *array1, float val, float *output, const int size){
+    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < size; indx += gridDim.x * blockDim.x){
+        output[indx] = array1[indx] - val;
+    }
+}
+
+// float softmax_gpu(float *array)
+
 float max_gpu(float *array, const int size){
     constexpr int BLOCK_DIM = 1024;
     const int gridSize = (size + BLOCK_DIM - 1) / BLOCK_DIM;
@@ -98,6 +135,8 @@ float max_gpu(float *array, const int size){
     
     return max_;
 }
+
+
 
 
 int main(){
