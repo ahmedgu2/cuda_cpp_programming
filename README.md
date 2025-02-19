@@ -82,3 +82,15 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 - Started to work on implementing **Softmax**.
 - Got a refresher about the log-sum-exp and maximum tricks for numerical stability of softmax. 
 - Implemented **1D Parallel maximum**.
+
+### Day 16:
+- Implemented **Softmax** function as described below:
+
+$$\text{softmax}(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$$
+
+
+- To improve numerical stability, we use the **max trick**, where we subtract the maximum value from all inputs:
+
+$$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
+- The softmax function was implemented in a non-optimized manner, with each operation (subtraction, exponentiation, division, max, and sum) executed in separate kernels. This introduces overhead and increases runtime.
+- The next step is to apply kernel fusion to enhance performance.

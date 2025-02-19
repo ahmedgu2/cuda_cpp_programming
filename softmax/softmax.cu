@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <numeric>
 #include <algorithm>
 #include <iostream>
 #include <random>
@@ -46,15 +47,15 @@ float sum_cpu(float *input, const int length){
 }
 
 __global__
-void maxArray_gpu(float *array, const int size, float *blocksMax){
+void maxArray_gpu(float *array, const int length, float *blocksMax){
     const int t = threadIdx.x;
     const int segmentDim = 2 * blockDim.x;
     const int indx = threadIdx.x + segmentDim * blockIdx.x;
     extern __shared__ float max_s[];
 
-    if(indx < size)
+    if(indx < length)
         max_s[t] = array[indx];
-    if(indx + blockDim.x < size)
+    if(indx + blockDim.x < length)
         max_s[t] = fmax(max_s[t], array[indx + blockDim.x]);
 
     for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
@@ -67,22 +68,23 @@ void maxArray_gpu(float *array, const int size, float *blocksMax){
 }
 
 __global__
-void expArray(float *array, const int size, float *output){
-    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < size; indx += gridDim.x * blockDim.x){
+void expArray_gpu(float *array, const int length, float *output){
+    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < length; indx += gridDim.x * blockDim.x){
         output[indx] = expf(array[indx]);
     }
 }
 
 __global__
-void sumArray(float *array, const int size, float *output){
+void sumArray_gpu(float *array, const int length, float *output){
     const int t = threadIdx.x;
     const int segment = 2 * blockDim.x;
     const int indx = threadIdx.x + segment * blockIdx.x;
     extern __shared__ float sum_s[];
 
-    if(indx < size)
+    sum_s[t] = 0.f;
+    if(indx < length)
         sum_s[t] = array[indx];
-    if(indx + blockDim.x < size)
+    if(indx + blockDim.x < length)
         sum_s[t] += array[indx + blockDim.x];
 
     for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
@@ -91,17 +93,22 @@ void sumArray(float *array, const int size, float *output){
             sum_s[t] += sum_s[t + stride];
     }
     if(t == 0)
-        *output = sum_s[0];
+        atomicAdd(output, sum_s[0]);
 }
 
 __global__
-void substractArray(float *array1, float val, float *output, const int size){
-    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < size; indx += gridDim.x * blockDim.x){
+void substractArray_gpu(float *array1, float val, float *output, const int length){
+    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < length; indx += gridDim.x * blockDim.x){
         output[indx] = array1[indx] - val;
     }
 }
 
-// float softmax_gpu(float *array)
+__global__
+void divideArray_gpu(float *array1, float val, float *output, const int length){
+    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < length; indx += gridDim.x * blockDim.x){
+        output[indx] = array1[indx] / val;
+    }
+}
 
 float max_gpu(float *array, const int size){
     constexpr int BLOCK_DIM = 1024;
@@ -136,21 +143,74 @@ float max_gpu(float *array, const int size){
     return max_;
 }
 
+float* softmax_gpu(float *array, const int length){
+    float *d_array, *d_output, *d_sum;
+    const int size = length * sizeof(float);
+    const int BLOCK_DIM = 512;
+    int gridSize = (length + BLOCK_DIM - 1) / BLOCK_DIM;
 
+    // Allocate gpu memory
+    CUDA_CHECK_ERROR(cudaMalloc(&d_array, size));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_output, size));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_sum, sizeof(float)));
+    // Init d_sum
+    CUDA_CHECK_ERROR(cudaMemset(d_sum, 0.f, sizeof(float)));
+
+    // Copy host array to device
+    CUDA_CHECK_ERROR(cudaMemcpy(d_array, array, size, cudaMemcpyHostToDevice));
+
+    // Softmax calculation:
+    // 1. Compute max(array). softmax(x + c) = softmax(x). We'll set c = -max(array) for numerical stability (avoid overflow)
+    float max_ = max_gpu(array, length);
+
+    // 2. Substract max from array
+    substractArray_gpu<<<gridSize, BLOCK_DIM>>>(d_array, max_, d_output, length);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // 3. Calculate exp(x - c)
+    expArray_gpu<<<gridSize, BLOCK_DIM>>>(d_output, length, d_output);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // 4. Calculate the normalization term (sum (exp(x - c)))
+    const int sharedMemorySize = BLOCK_DIM * sizeof(float);
+    sumArray_gpu<<<gridSize, BLOCK_DIM, sharedMemorySize>>>(d_output, length, d_sum);
+    CUDA_KERNEL_CHECK_ERROR();
+    float sum_;
+    CUDA_CHECK_ERROR(cudaMemcpy(&sum_, d_sum, sizeof(float), cudaMemcpyDeviceToHost));
+
+    // 5. Get final result by dividing exp(x - c) by the normalization term + epsilon (to avoid deviding by 0)
+    const float epsilon = 1e-5;
+    divideArray_gpu<<<gridSize, BLOCK_DIM>>>(d_output, sum_ + epsilon, d_output, length);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // Copy result to host memory
+    float *softmaxResult = new float[length];
+    CUDA_CHECK_ERROR(cudaMemcpy(softmaxResult, d_output, size, cudaMemcpyDeviceToHost));
+
+    cudaFree(d_array);
+    cudaFree(d_output);
+    cudaFree(d_sum);
+
+    return softmaxResult;
+}
 
 
 int main(){
-    const int length = 510;
+    const int length = 1024*1024;
     float *input = new float[length];
     
     // Initialize input data
     initVector(input, length);
-
-    // Compute CPU and GPU max
-    std::cout << "max_cpu: " << *std::max_element(input, input + length) << std::endl;
-    std::cout << "max_gpu: " << max_gpu(input, length);
     
+    // Test softmax
+    float *softmaxResult = softmax_gpu(input, length);
+    
+    // printVector(input, length);
+    std::cout << "################# softmax: #####################\n";
+    // printVector(softmaxResult, length);
+
     // Cleanup
+    delete[] softmaxResult;
     delete[] input;
     
     return 0;
