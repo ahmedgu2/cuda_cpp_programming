@@ -77,3 +77,8 @@ I'll be also learning new C++ language features (C++ 14/17/20) and experimenting
 ### DAY 14:
 - Read about precision loss for parallel reduction sum. Floating point sum yields different results depending on the algorithm, e.g. sequential sum (cpu version) results != Hierarchical reduction sum (gpu version) results.
 - Added an integer version of the kernel which yields the exact same result as the cpu version.
+
+### Day 15:
+- Started to work on implementing **Softmax**.
+- Got a refresher about the log-sum-exp and maximum tricks for numerical stability of softmax. 
+- Implemented **1D Parallel maximum**.
