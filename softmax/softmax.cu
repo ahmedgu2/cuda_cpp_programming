@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <algorithm>
 #include <iostream>
 #include <random>
 #include <cmath>
@@ -54,9 +55,9 @@ void maxArray_gpu(float *array, const int size, float *blocksMax){
     if(indx < size)
         max_s[t] = array[indx];
     if(indx + blockDim.x < size)
-        max_s[t] = fmax(array[indx], array[indx + blockDim.x]);
+        max_s[t] = fmax(max_s[t], array[indx + blockDim.x]);
 
-    for(int stride = blockDim.x / 2; stride >= 1; stride >= 1){
+    for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
         __syncthreads();
         if(t < stride)
             max_s[t] = fmax(max_s[t], max_s[t + stride]);
@@ -66,60 +67,51 @@ void maxArray_gpu(float *array, const int size, float *blocksMax){
 }
 
 float max_gpu(float *array, const int size){
-    constexpr int BLOCK_DIM = 512;
+    constexpr int BLOCK_DIM = 1024;
     const int gridSize = (size + BLOCK_DIM - 1) / BLOCK_DIM;
-    float *blocksMax = new float[gridSize];
+    float *d_blocksMax;
+    float *d_input;
 
-    maxArray_gpu<<<gridSize, BLOCK_DIM, BLOCK_DIM>>>(array, size, blocksMax);
-    maxArray_gpu<<<1, BLOCK_DIM, BLOCK_DIM>>>(array, size, blocksMax);
+    // Allocate GPU memory
+    CUDA_CHECK_ERROR(cudaMalloc(&d_input, size * sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_blocksMax, gridSize * sizeof(float)));
 
+    // Copy input data to GPU
+    CUDA_CHECK_ERROR(cudaMemcpy(d_input, array, size * sizeof(float), cudaMemcpyHostToDevice));
+
+    maxArray_gpu<<<gridSize, BLOCK_DIM, BLOCK_DIM * sizeof(float)>>>(d_input, size, d_blocksMax);
+    CUDA_KERNEL_CHECK_ERROR();
+    // After first kernel launch, we get each block's max in `blocksMax` array
+    // Now all we need is to launch a second kernel with only 1 block and `blocksMax` as input to get the global max from all blocks.
+    // PS: No need to launch the second kernel if we only have 1 block.
+    if(gridSize > 1){
+        maxArray_gpu<<<1, BLOCK_DIM, gridSize * sizeof(float)>>>(d_blocksMax, gridSize, d_blocksMax);
+        CUDA_KERNEL_CHECK_ERROR();
+    }
+    
     // Copy result to cpu
     float max_;
-    CUDA_CHECK_ERROR(cudaMemcpy(&max_, &blocksMax[0], sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK_ERROR(cudaMemcpy(&max_, &d_blocksMax[0], sizeof(float), cudaMemcpyDeviceToHost));
 
-    delete[] blocksMax;
+    cudaFree(d_blocksMax);
+    cudaFree(d_input);
     
     return max_;
 }
 
 
 int main(){
-    const int length = 1024 * 1024;
+    const int length = 510;
     float *input = new float[length];
-    float sum_cpu_result, sum_gpu_result;
-    float *d_input, *d_sum_gpu_result;
     
     // Initialize input data
     initVector(input, length);
 
-    // Compute CPU sum
-    sum_cpu_result = sum_cpu(input, length);
-
-    // Allocate GPU memory
-    CUDA_CHECK_ERROR(cudaMalloc(&d_input, length * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_sum_gpu_result, sizeof(float)));
-    // Before launching the kernel, add:
-    CUDA_CHECK_ERROR(cudaMemset(d_sum_gpu_result, 0.f, sizeof(float)));
-
-    // Copy input data to GPU
-    CUDA_CHECK_ERROR(cudaMemcpy(d_input, input, length * sizeof(float), cudaMemcpyHostToDevice));
-
-    // Launch kernel
-    int numThreads = 256;
-    int numBlocks = (length + numThreads - 1) / numThreads;
-    size_t sharedMemorySize = numThreads * sizeof(float);
-    // sumReductionSharedMultiSegment_gpu<<<numBlocks, numThreads, sharedMemorySize>>>(d_input, length, d_sum_gpu_result);
-    CUDA_KERNEL_CHECK_ERROR();
-
-    // Copy result back to host
-    CUDA_CHECK_ERROR(cudaMemcpy(&sum_gpu_result, d_sum_gpu_result, sizeof(float), cudaMemcpyDeviceToHost));
-
-    // Compare results
-    // test_cpu_gpu(sum_cpu_result, sum_gpu_result);
-
+    // Compute CPU and GPU max
+    std::cout << "max_cpu: " << *std::max_element(input, input + length) << std::endl;
+    std::cout << "max_gpu: " << max_gpu(input, length);
+    
     // Cleanup
-    CUDA_CHECK_ERROR(cudaFree(d_input));
-    CUDA_CHECK_ERROR(cudaFree(d_sum_gpu_result));
     delete[] input;
     
     return 0;
