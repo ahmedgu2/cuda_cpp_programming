@@ -94,3 +94,13 @@ $$\text{softmax}(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$$
 $$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
 - The softmax function was implemented in a non-optimized manner, with each operation (subtraction, exponentiation, division, max, and sum) executed in separate kernels. This introduces overhead and increases runtime.
 - The next step is to apply kernel fusion to enhance performance.
+
+### Day 17:
+- Optimized the softmax function by applying kernel fusion as follows:
+    - `expArray_gpu()`, `substractArray_gpu()` are now combined and integrated into the `sumArray_gpu()` kernel (named `sumExpArray_gpu()`).
+ - This helped to improve performance by:
+    - **Reduction of kernel launch overhead** as we reduced the number of kernel from 5 to 3.
+    - **Lower Memory Bandwidth Usage** as global memory reads and writes (i.e. less intermediate results) are decreased in the fused kernels.
+    - **Better Memory Locality**.
+- Results:
+    - Improved runtime by ***30%*** on a test 1D array of size 4096 x 1024.
