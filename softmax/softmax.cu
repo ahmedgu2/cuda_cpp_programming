@@ -111,7 +111,7 @@ void divideArray_gpu(float *array1, float val, float *output, const int length){
 }
 
 float max_gpu(float *array, const int size){
-    constexpr int BLOCK_DIM = 1024;
+    constexpr int BLOCK_DIM = 512;
     const int gridSize = (size + BLOCK_DIM - 1) / BLOCK_DIM;
     float *d_blocksMax;
     float *d_input;
@@ -194,9 +194,97 @@ float* softmax_gpu(float *array, const int length){
     return softmaxResult;
 }
 
+/***************************** Kernel fusion ******************************* */
+
+__global__
+void sumExpArray_gpu(float *array, const int length, float *output, float *exp_x, float max_){
+    /**
+     * This kernel computes and returns exp(x-max) and the normalization term (sum(exp(x - c)))
+     */
+    const int t = threadIdx.x;
+    const int segment = 2 * blockDim.x;
+    const int indx = threadIdx.x + segment * blockIdx.x;
+    extern __shared__ float sum_s[];
+
+    sum_s[t] = 0.f;
+    if(indx < length){
+        float val = expf(array[indx] - max_);
+        sum_s[t] = val;
+        exp_x[indx] = val;
+    }
+    if(indx + blockDim.x < length){
+        float val = expf(array[indx + blockDim.x] - max_);
+        sum_s[t] += val;
+        exp_x[indx + blockDim.x] = val;
+    }
+
+    for(int stride = blockDim.x / 2; stride >= 1; stride >>= 1){
+        __syncthreads();
+        if(t < stride)
+            sum_s[t] += sum_s[t + stride];
+    }
+    if(t == 0)
+        atomicAdd(output, sum_s[0]);
+}
+
+float* softmaxFused_gpu(float *array, const int length){
+    float *d_array, *d_output, *d_sum, *d_exp_x;
+    const int size = length * sizeof(float);
+    const int BLOCK_DIM = 512;
+    int gridSize = (length + BLOCK_DIM - 1) / BLOCK_DIM;
+
+    // Allocate gpu memory
+    CUDA_CHECK_ERROR(cudaMalloc(&d_array, size));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_output, size));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_sum, sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_exp_x, size));
+    // Init d_sum
+    CUDA_CHECK_ERROR(cudaMemset(d_sum, 0.f, sizeof(float)));
+
+    // Copy host array to device
+    CUDA_CHECK_ERROR(cudaMemcpy(d_array, array, size, cudaMemcpyHostToDevice));
+
+    // Softmax calculation:
+    // 1. Compute max(array). softmax(x + c) = softmax(x). We'll set c = -max(array) for numerical stability (avoid overflow)
+    float max_ = max_gpu(array, length);
+
+    // 2. Calculate the exp(x-c) and normalization term (sum (exp(x - c)))
+    const int sharedMemorySize = BLOCK_DIM * sizeof(float);
+    sumExpArray_gpu<<<gridSize, BLOCK_DIM, sharedMemorySize>>>(d_array, length, d_sum, d_exp_x, max_);
+    CUDA_KERNEL_CHECK_ERROR();
+    float sum_;
+    CUDA_CHECK_ERROR(cudaMemcpy(&sum_, d_sum, sizeof(float), cudaMemcpyDeviceToHost));
+
+    // 3. Get final result by dividing exp(x - c) by the normalization term + epsilon (to avoid deviding by 0)
+    const float epsilon = 1e-5;
+    divideArray_gpu<<<gridSize, BLOCK_DIM>>>(d_exp_x, sum_ + epsilon, d_output, length);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // Copy result to host memory
+    float *softmaxResult = new float[length];
+    CUDA_CHECK_ERROR(cudaMemcpy(softmaxResult, d_output, size, cudaMemcpyDeviceToHost));
+
+    cudaFree(d_array);
+    cudaFree(d_output);
+    cudaFree(d_sum);
+
+    return softmaxResult;
+}
+
+/* Test kernels*/
+void compareKernelsOutputs(float *softmaxResults, float *softmaxFusedResults, const int length, const float eps=1e4){
+    for(int i = 0; i < length; ++i){
+        if(std::abs(softmaxFusedResults[i] - softmaxResults[i]) > eps){
+            std::cerr << "Mismatch at index " << i << ": " << softmaxResults[i] << " != " << softmaxFusedResults[i] << std::endl;
+            std::cerr << "\033[31mTEST FAILED\033[0m" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    std::cout << "\033[32mTEST PASSED!\033[0m" << std::endl;
+}
 
 int main(){
-    const int length = 1024*1024;
+    const int length = 4096*1024;
     float *input = new float[length];
     
     // Initialize input data
@@ -204,13 +292,15 @@ int main(){
     
     // Test softmax
     float *softmaxResult = softmax_gpu(input, length);
+    // float *softmaxFusedResult = softmaxFused_gpu(input, length);
+
+    // compareKernelsOutputs(softmaxResult, softmaxFusedResult, length);
     
-    // printVector(input, length);
     std::cout << "################# softmax: #####################\n";
-    // printVector(softmaxResult, length);
 
     // Cleanup
     delete[] softmaxResult;
+    // delete[] softmaxFusedResult;
     delete[] input;
     
     return 0;
