@@ -104,3 +104,7 @@ $$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
     - **Better Memory Locality**.
 - Results:
     - Improved runtime by ***30%*** on a test 1D array of size 4096 x 1024.
+
+### Day 18:
+- Read Chapter 9 (Histograms).
+- Implemented naive parallel histogram kernel.
