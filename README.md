@@ -108,3 +108,5 @@ $$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
 ### Day 18:
 - Read Chapter 9 (Histograms).
 - Implemented naive parallel histogram kernel.
+
+### Day 19:
