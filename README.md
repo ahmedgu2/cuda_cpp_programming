@@ -110,3 +110,6 @@ $$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
 - Implemented naive parallel histogram kernel.
 
 ### Day 19:
+- I'll be implementing different types of attention for the next few days, e.g. scoring functions such as **dot product**, **Bahdanu**, **Luong**, **self attention**..
+- Refresher on attention in general, and Bahdanau and Luong scoring functions.
+- Implemented the simple **dot product** based scoring function.
