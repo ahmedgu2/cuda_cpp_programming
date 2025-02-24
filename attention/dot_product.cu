@@ -37,25 +37,17 @@ void printVector(float *vector, const int length){
 }
 
 /***************** GPU Code *********************** */
-
 __global__
-void multiplyVec(float *x, float *y, const int length, float *output){
-    for(int indx = threadIdx.x + blockDim.x * blockIdx.x; indx < length; indx += gridDim.x * blockDim.x){
-        output[indx] = x[indx] * y[indx];
-    }
-}
-
-__global__
-void sum(float *array, const int length, float *output){
+void dotProduct(float *x, float *y, const int length, float *output){
     int t = threadIdx.x;
     int segment = 2 * blockDim.x;
     int indx = threadIdx.x + segment * blockIdx.x;
     extern __shared__ float sum_s[];
 
     if(indx < length)
-        sum_s[t] = array[indx];
+        sum_s[t] = x[indx] * y[indx];
     if(indx + blockDim.x < length)
-        sum_s[t] += array[indx + blockDim.x];
+        sum_s[t] += x[indx + blockDim.x] * y[indx + blockDim.x];
 
     for(int stride = blockDim.x / 2; stride >= 1; stride >>=1){
         __syncthreads();
@@ -68,14 +60,13 @@ void sum(float *array, const int length, float *output){
 
 /*********** Dot product calling function ************* */
 float dot_gpu(float *x, float *y, const int length){
-    float *d_x, *d_y, *d_mul, *d_dot;
+    float *d_x, *d_y, *d_dot;
     float dot = 0.f;
     size_t arraySize = length * sizeof(float);
 
     // Allocate device memory
     CUDA_CHECK_ERROR(cudaMalloc(&d_x, arraySize));
     CUDA_CHECK_ERROR(cudaMalloc(&d_y, arraySize));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_mul, arraySize));
     CUDA_CHECK_ERROR(cudaMalloc(&d_dot, sizeof(float)));
     
     // Init
@@ -87,9 +78,7 @@ float dot_gpu(float *x, float *y, const int length){
     constexpr int BLOCK_DIM = 512;
     const int gridSize = (length + BLOCK_DIM - 1) / BLOCK_DIM;
     const int sharedMemorySize = BLOCK_DIM * sizeof(float);
-    multiplyVec<<<gridSize, BLOCK_DIM>>>(d_x, d_y, length, d_mul);
-    CUDA_KERNEL_CHECK_ERROR();
-    sum<<<gridSize, BLOCK_DIM, sharedMemorySize>>>(d_mul, length, d_dot);
+    dotProduct<<<gridSize, BLOCK_DIM, sharedMemorySize>>>(d_x, d_y, length, d_dot);
     CUDA_KERNEL_CHECK_ERROR();
 
     // Copy output to host
@@ -98,7 +87,6 @@ float dot_gpu(float *x, float *y, const int length){
     cudaFree(d_dot);
     cudaFree(d_x);
     cudaFree(d_y);
-    cudaFree(d_mul);
 
     return dot;
 }
