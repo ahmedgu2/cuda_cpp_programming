@@ -118,3 +118,21 @@ $$ \text{softmax}(x_i) = \frac{e^{x_i - \max(x)}}{\sum_{j} e^{x_j - \max(x)}} $$
 - Very short session (not enough time to work on much).
 - Fused dot product kernels (multiplication and sum) into one for better performance and less memory consomption.
 - Layed the idea for implementing **Luong attention** (will implement tomorrow).
+
+### Day 21:
+- Implemented **Luong attention** scoring function, i.e. **Bilinear attention score**:
+
+$$
+\text{score}(h_t, s_k) = h^T_{t} \times W \times s_k
+$$
+
+- We can compute all scores $(s_k)$ for $k$ in $1..m$ in one go as follows:
+
+$$
+\text{scores}(h_t, S) = h^T_{t} \times W \times S
+$$
+
+### Definitions:
+- `S`: Encoder states matrix of shape `(d, m)`, where each column represents an encoder state $s_k$, for $k$ in $1..m$.
+- `W`: Weight matrix of shape `(d, d)`.
+- `h^T_{t}`: The decoder vector at timestep $t$ of shape `(1, d)`.
