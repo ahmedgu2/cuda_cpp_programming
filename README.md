@@ -136,3 +136,9 @@ $$
 - `S`: Encoder states matrix of shape `(d, m)`, where each column represents an encoder state $s_k$, for $k$ in $1..m$.
 - `W`: Weight matrix of shape `(d, d)`.
 - `h^T_{t}`: The decoder vector at timestep $t$ of shape `(1, d)`.
+
+### Day 22:
+- Quick session, started implementing **Bahdanau attention** score, i.e **MLP score**
+$$
+\text{score}(h_t, s_k) = W^T_{2} \times tanh (W_1 [h, s_k])
+$$
