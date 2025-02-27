@@ -142,3 +142,7 @@ $$
 $$
 \text{score}(h_t, s_k) = W^T_{2} \times tanh (W_1 [h, s_k])
 $$
+
+### Day 23:
+- Completed the **Bahdanau attention score** implmentation.
+- Implemented **vector concatination** and 2D **tanh** which are used to calculate the score.
