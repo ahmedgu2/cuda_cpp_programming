@@ -112,7 +112,7 @@ void bahdanauAttScore_gpu(
      * 
      */
 
-    float *d_w_2_T, *d_W_1, *d_h, *d_S, *d_concat, *d_matmul;
+    float *d_w_2_T, *d_W_1, *d_h, *d_S, *d_concat, *d_matmul, *d_score;
 
         // Allocate memory on GPU
     CUDA_CHECK_ERROR(cudaMalloc((void**)&d_w_2_T, d * sizeof(float)));       // Shape: (1, d)
@@ -121,6 +121,7 @@ void bahdanauAttScore_gpu(
     CUDA_CHECK_ERROR(cudaMalloc((void**)&d_S, d * sizeof(float)));     // Shape: (d, 1)
     CUDA_CHECK_ERROR(cudaMalloc((void**)&d_matmul, d * sizeof(float)));     // Shape: (d, 1)
     CUDA_CHECK_ERROR(cudaMalloc((void**)&d_concat, 2 * d * sizeof(float)));     // Shape: (2d, 1)
+    CUDA_CHECK_ERROR(cudaMalloc((void**)&d_score, sizeof(float)));     // Shape: (1)
 
     // Copy memory from host to device
     CUDA_CHECK_ERROR(cudaMemcpy(d_w_2_T, w_2_T, d * sizeof(float), cudaMemcpyHostToDevice));
@@ -141,6 +142,8 @@ void bahdanauAttScore_gpu(
 
     tanh_<<<gridSize, numThreads>>>(d_matmul, d, 1, d_matmul);
     CUDA_KERNEL_CHECK_ERROR();
+
+    matmul<<<gridSize, numThreads>>>(d_w_2_T, 1, d, d_matmul, d, 1, d_score);
     
     // Free allocated memory (should be done after kernel execution)
     CUDA_CHECK_ERROR(cudaFree(d_w_2_T));
@@ -149,6 +152,7 @@ void bahdanauAttScore_gpu(
     CUDA_CHECK_ERROR(cudaFree(d_S));
     CUDA_CHECK_ERROR(cudaFree(d_concat));
     CUDA_CHECK_ERROR(cudaFree(d_matmul));
+    CUDA_CHECK_ERROR(cudaFree(d_score));
 }
 
 /******************** Unit testing ******************* */
