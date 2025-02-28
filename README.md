@@ -146,3 +146,7 @@ $$
 ### Day 23:
 - Completed the **Bahdanau attention score** implmentation.
 - Implemented **vector concatination** and 2D **tanh** which are used to calculate the score.
+
+### Day 24:
+- Refresher on CMake and how to create one for cuda and cpp project.
+- Refactored some of the attention to seperate kernels from testing code.
