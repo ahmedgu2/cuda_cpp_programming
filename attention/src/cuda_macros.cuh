@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 
 /******************* Utility macros and functions ********************** */
 #define CUDA_CHECK_ERROR(callResult)                                                \

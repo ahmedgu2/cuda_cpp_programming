@@ -150,3 +150,8 @@ $$
 ### Day 24:
 - Refresher on CMake and how to create one for cuda and cpp project.
 - Refactored some of the attention to seperate kernels from testing code.
+
+### Day 25:
+- Started implementing **self attention**
+- Implemented **2D Softmax** kernel and run testing for cpu vs gpu versions.
+- Contrary to my 1D Softmax implementation which used 3 kernels, the 2D version uses only 1 kernel which gets rid of the kernel calls overhead.

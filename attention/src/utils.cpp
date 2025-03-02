@@ -21,3 +21,13 @@ void printVector(float *vector, const int length)
     }
     std::cout << std::endl;
 }
+
+void printMatrix(std::vector<float>& mat, const int nRows, const int nCols){
+    for(int row = 0; row < nRows; ++row){
+        for(int col = 0; col < nCols; ++col){
+            int indx = row * nCols + col;
+            std::cout << mat[indx] << " ";
+        }
+        std::cout << std::endl;
+    }
+}

@@ -16,6 +16,7 @@ set(
     CUDA_SOURCES
     src/dot_product.cu
     src/luong_att.cu
+    src/self_attention.cu
 )
 
 set(
