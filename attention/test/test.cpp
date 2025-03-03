@@ -43,7 +43,37 @@ std::vector<float> softmax2D_cpu(float *X, const int nRows, const int nCols){
     return result;
 }
 
+float* matmul_cpu(float *mat1, int nRows1, int nCols1, float *mat2, int nRows2, int nCols2){
+    if(nCols1 != nRows2){
+        std::cerr << "ERROR: nCols1 != nRows1. These must be equal to be able to apply matrix multiplcation!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    float *result = new float[nRows1 * nCols2];
+    for(int row = 0; row < nRows1; ++row){
+        for(int col = 0; col < nCols2; ++col){
+            result[row * nCols2 + col] = 0.f;
+            for(int k = 0; k < nCols1; ++k){
+                result[row * nCols2 + col] += mat1[row * nCols1 + k] * mat2[k * nCols2 + col];
+            }
+        }
+    }
+    return result;
+}
+
+
+
 /************** Testing functions ************ */
+void compareArrays(float *x, float *y, const int length){
+    for(int i = 0; i < length; ++i){
+        if(std::abs(x[i] - y[i]) > 1e-3){
+            std::cout << "Mismatch at index : " << i << " " << x[i] << " != " << y[i] << std::endl;
+            std::cerr << "\033[31mTEST FAILED\033[0m" << std::endl;
+            // exit(EXIT_FAILURE);
+        }
+    }
+    std::cout << "\033[32mTEST PASSED!\033[0m" << std::endl;
+}
+
 void test_dotProduct(){
     const int length = 1024;
     float x[length], y[length];
@@ -57,17 +87,6 @@ void test_dotProduct(){
     if(std::abs(dotResult_cpu - dotResult_gpu) > 1e-3){
         std::cerr << "\033[31mTEST FAILED\033[0m" << std::endl;
         exit(EXIT_FAILURE);
-    }
-    std::cout << "\033[32mTEST PASSED!\033[0m" << std::endl;
-}
-
-void compareArrays(float *x, float *y, const int length){
-    for(int i = 0; i < length; ++i){
-        if(std::abs(x[i] - y[i]) > 1e-3){
-            std::cout << "Mismatch at index : " << i << " " << x[i] << " != " << y[i] << std::endl;
-            std::cerr << "\033[31mTEST FAILED\033[0m" << std::endl;
-            // exit(EXIT_FAILURE);
-        }
     }
     std::cout << "\033[32mTEST PASSED!\033[0m" << std::endl;
 }
@@ -87,10 +106,32 @@ void test_softmax2D(){
     delete[] softmaxResult_gpu;
 }
 
+void test_matmul(){
+    const int nRows1 = 512, nRows2 = 500, nCols1 = 500, nCols2 = 512;
+    float *X = new float[nRows1 * nCols1];
+    float *Y = new float[nRows2 * nCols2];
+
+    initVector(X, nRows1 * nCols1);
+    initVector(Y, nRows2 * nCols2);
+
+    float* matmulResult_cpu = matmul_cpu(X, nRows1, nCols1, Y, nRows2, nCols2);
+    float* matmulResult_gpu = matmul_gpu(X, nRows1, nCols1, Y, nRows2, nCols2);
+    compareArrays(matmulResult_gpu, matmulResult_cpu, nRows1 * nCols2);
+
+    delete[] matmulResult_cpu;
+    delete[] matmulResult_gpu;
+    delete[] X;
+    delete[] Y;
+}
+
 int main(){
-    std::cout << "Testing dotProduct..." << std::endl;
-    test_dotProduct();
+    // std::cout << "Testing dotProduct..." << std::endl;
+    // test_dotProduct();
     
-    std::cout << "Testing softmax2D..." << std::endl;
-    test_softmax2D();
+    // std::cout << "Testing softmax2D..." << std::endl;
+    // test_softmax2D();
+
+    std::cout << "Testing matmul..." << std::endl;
+    test_matmul();
+    std::cout << "PPPP";
 }

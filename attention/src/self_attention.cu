@@ -53,6 +53,98 @@ void softmax2D(float *X, const int nRows, const int nCols, float *softmaxResult)
     }
 }
 
+__global__
+void matmul(
+    float *mat1, 
+    const int nRows1, 
+    const int nCols1, 
+    float *mat2, 
+    const int nRows2, 
+    const int nCols2,
+    float* output, 
+    const size_t TILE_WIDTH
+){
+    uint32_t col = threadIdx.x + blockIdx.x * TILE_WIDTH;
+    uint32_t row = threadIdx.y + blockIdx.y * TILE_WIDTH; 
+    int tx = threadIdx.x, ty = threadIdx.y;
+
+    extern __shared__ float shared_mem[];
+    float *mat1_s = (float*)shared_mem;
+    float *mat2_s = (float*)shared_mem + TILE_WIDTH * TILE_WIDTH;
+
+    // Load tile into shared memory
+    float outputVal = 0.f;
+
+    for(int tile = 0; tile < (nCols1 + TILE_WIDTH - 1) / TILE_WIDTH; ++tile){
+        uint32_t indx_s  = tx + TILE_WIDTH * ty;
+        
+        if(row < nRows1 && (TILE_WIDTH * tile + tx < nCols1))
+            mat1_s[indx_s] = mat1[row * nCols1 + TILE_WIDTH * tile + tx];
+        else
+            mat1_s[indx_s] = 0.f;
+        if((TILE_WIDTH * tile + ty < nRows2) && col < nCols2)
+            mat2_s[indx_s] = mat2[(TILE_WIDTH * tile + ty) * nCols2 + col];
+        else
+            mat2_s[indx_s] = 0.f;
+
+        __syncthreads();
+
+        // Compute dot product 
+        for(int k = 0; k < TILE_WIDTH; ++k){
+            outputVal += mat1_s[TILE_WIDTH * ty + k] * mat2_s[TILE_WIDTH * k + tx];
+        }
+        __syncthreads();
+
+    }
+    if(row < nRows1 && col < nCols2)
+        output[row * nCols2 + col] = outputVal;
+}
+
+float* matmul_gpu(
+    float *mat1,
+    const int nRows1,
+    const int nCols1,
+    float *mat2,
+    const int nRows2,
+    const int nCols2
+){
+
+    size_t size1 = nRows1 * nCols1 * sizeof(float);
+    size_t size2 = nRows2 * nCols2 * sizeof(float);
+    size_t sizer = nRows1 * nCols2 * sizeof(float);
+
+    float *d_mat1, *d_mat2, *d_result;
+    CUDA_CHECK_ERROR(cudaMalloc(&d_mat1, size1));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_mat2, size2));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_result, sizer));
+
+    std::cout << "aaaaaa";
+    // Copy matrices to device
+    CUDA_CHECK_ERROR(cudaMemcpy(d_mat1, mat1, size1, cudaMemcpyHostToDevice));
+    CUDA_CHECK_ERROR(cudaMemcpy(d_mat2, mat2, size2, cudaMemcpyHostToDevice));
+
+    std::cout << "bbbb";
+    // Launch Kernel
+    const int TILE_WIDTH = 16;
+    dim3 threadsPerBlock(TILE_WIDTH, TILE_WIDTH); // number of threads per dimension needs to be equal to TILE_DIM.
+    dim3 numBlocks((nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y, (nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x);
+    size_t sharedMemorySize = 2 * TILE_WIDTH * TILE_WIDTH * sizeof(float);
+
+    std::cout << "cccc";
+    matmul<<<numBlocks, threadsPerBlock, sharedMemorySize>>>(d_mat1, nRows1, nCols1, d_mat2, nRows2, nCols2, d_result, TILE_WIDTH);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // Copy to host
+    float *result_host = new float[sizer];
+    CUDA_CHECK_ERROR(cudaMemcpy(result_host, d_result, sizer, cudaMemcpyDeviceToHost));
+    
+    cudaFree(d_mat1);
+    cudaFree(d_mat2);
+    cudaFree(d_result);
+
+    return result_host;
+}
+
 float* softmax2D_gpu(float *X, const int nRows, const int nCols){
 
     float *d_X, *d_softmax;
