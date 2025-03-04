@@ -267,6 +267,7 @@ float* softmaxFused_gpu(float *array, const int length){
     cudaFree(d_array);
     cudaFree(d_output);
     cudaFree(d_sum);
+    cudaFree(d_exp_x);
 
     return softmaxResult;
 }
