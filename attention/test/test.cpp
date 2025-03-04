@@ -133,5 +133,4 @@ int main(){
 
     std::cout << "Testing matmul..." << std::endl;
     test_matmul();
-    std::cout << "PPPP";
 }
