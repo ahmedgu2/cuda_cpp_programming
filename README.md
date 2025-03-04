@@ -155,3 +155,10 @@ $$
 - Started implementing **self attention**
 - Implemented **2D Softmax** kernel and run testing for cpu vs gpu versions.
 - Contrary to my 1D Softmax implementation which used 3 kernels, the 2D version uses only 1 kernel which gets rid of the kernel calls overhead.
+
+### Day 26:
+- Implemented utility functions for self attention:
+    - `matmul()` is a tiled matrix multiplication with shared memory that handles arbitrary matrix shapes.
+    - `matmulScaledTranspose()` computes $\frac{Q K^T}{scalingFactor}$.
+- Implemented **Self Attention** which combines the `softmax2D()`, `matmul()` and `matmulScaledTranspose()` to get the attention matrix given $Q$, $K$, and $V$.
+- Next up is to test it and then refactor it into a *AttentionLayer* class to seperate the weights creation and intialization from forward pass. The next objective would be to  align it with Pytorch's `MultiHeadAttention()` layer and compare performance (using only 1 head for pytorch's layer as a first step).
