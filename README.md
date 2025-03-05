@@ -172,3 +172,8 @@ $$
     AttentionLayer attentionLayer(seq_len, dim_emb, "cuda");
     float* attentionOuput = attentionLayer.forward(queries, keys, values);
 ```
+
+### Day 28:
+- Implemented the CPU version of selfAttention.
+- Added testing for GPU version and spent some time debugging.
+- Fixed boundary checks and indexing bugs in the `matmulTransposScaled()` kernel.
