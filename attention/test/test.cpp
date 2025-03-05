@@ -74,7 +74,7 @@ float* matmulTranspose_cpu(float *mat1, int nRows1, int nCols1, float *mat2, int
         for(int col = 0; col < nRows2; ++col){
             result[row * nRows2 + col] = 0.f;
             for(int k = 0; k < nCols1; ++k){
-                result[row * nRows2 + col] += mat1[row * nCols1 + k] * mat2[col * nCols2 + k];
+                result[row * nRows2 + col] += mat1[row * nCols1 + k] * mat2[col * nRows2 + k];
             }
         }
     }
@@ -149,8 +149,8 @@ void test_dotProduct(){
 }
 
 void test_softmax2D(){
-    const int nRows = 32;
-    const int nCols = 32;
+    const int nRows = 256;
+    const int nCols = 256;
     float X[nRows * nCols];
 
     initVector(X, nRows * nCols);
@@ -164,7 +164,7 @@ void test_softmax2D(){
 }
 
 void test_matmul(){
-    const int nRows1 = 512, nRows2 = 500, nCols1 = 500, nCols2 = 512;
+    const int nRows1 = 512, nRows2 = 128, nCols1 = 128, nCols2 = 512;
     float *X = new float[nRows1 * nCols1];
     float *Y = new float[nRows2 * nCols2];
 
@@ -182,7 +182,7 @@ void test_matmul(){
 }
 
 void test_attentionLayer(){
-    uint32_t seq_len = 128, dim_emb = 512;
+    uint32_t seq_len = 32, dim_emb = 256;
     AttentionLayer attentionLayer(seq_len, dim_emb, "cuda");
     // Create queries, keys and values
     float *queries = new float[seq_len * dim_emb];

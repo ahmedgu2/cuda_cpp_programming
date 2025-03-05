@@ -134,7 +134,7 @@ void matmulScaledTransposed(
             mat1_s[indx_s] = mat1[row * nCols1 + TILE_WIDTH * tile + tx];
         else
             mat1_s[indx_s] = 0.f;
-        if((TILE_WIDTH * tile + ty < nRows2) && col < nCols2)
+        if((TILE_WIDTH * tile + ty < nCols2) && col < nRows2)
             mat2_s[indx_s] = mat2[col * nRows2 + (TILE_WIDTH * tile + ty)]; // Implicit transposition of mat2
         else
             mat2_s[indx_s] = 0.f;
@@ -143,13 +143,13 @@ void matmulScaledTransposed(
 
         // Compute dot product 
         for(int k = 0; k < TILE_WIDTH; ++k){
-            outputVal += mat1_s[TILE_WIDTH * ty + k] * mat2_s[TILE_WIDTH * k + tx];
+            outputVal += mat1_s[TILE_WIDTH * ty + k] * mat2_s[k * TILE_WIDTH + tx];
         }
         __syncthreads();
 
     }
-    if(row < nRows1 && col < nCols2)
-        output[row * nCols2 + col] = outputVal / scalingFactor; // Scaling factor = sqrt(dim_emb) used to normalize Q x K^T inside the softmax
+    if(row < nRows1 && col < nRows2)
+        output[row * nRows2 + col] = outputVal / scalingFactor; // Scaling factor = sqrt(dim_emb) used to normalize Q x K^T inside the softmax
 }
 
 float* matmul_gpu(
