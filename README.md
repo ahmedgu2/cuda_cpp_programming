@@ -163,11 +163,14 @@ $$
 - Implemented **Self Attention** which combines the `softmax2D()`, `matmul()` and `matmulScaledTranspose()` to get the attention matrix given $Q$, $K$, and $V$.
 - Next up is to test it and then refactor it into a *AttentionLayer* class to seperate the weights creation and intialization from forward pass. The next objective would be to  align it with Pytorch's `MultiHeadAttention()` layer and compare performance (using only 1 head for pytorch's layer as a first step).
 
+
 ### Day 27:
-- Refactored code and implemented `AttentionLayer` class to mimick pytorch's `MultiHeadAttention`class.
-- `AttentionLayer` handles the data allocation, initialization (Xavier normal initialization) on cuda device.
-- The `forward()` function calls the self attention kernel and returns the attention output.
-- Example usage:
+- Developed the `AttentionLayer` class to replicate PyTorch's `MultiHeadAttention` functionality.
+- Refactored the `selfAttention()` kernel to seamlessly integrate with `AttentionLayer`.
+- Designed `AttentionLayer` to handle data allocation and initialization using Xavier normal initialization on a CUDA device.
+- Implemented the `forward()` function to invoke the self-attention kernel and return the computed attention output.
+
+Example usage:
 ```cpp
     AttentionLayer attentionLayer(seq_len, dim_emb, "cuda");
     float* attentionOuput = attentionLayer.forward(queries, keys, values);
