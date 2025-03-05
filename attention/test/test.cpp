@@ -11,6 +11,8 @@
 #include "AttentionLayer.h"
 #include "cuda_utils.cuh"
 
+#define LOG(msg) std::cout << msg << std::endl
+
 /*************** CPU Version ***************** */
 float dot_cpu(float *x, float *y, const int length)
 {
@@ -62,7 +64,60 @@ float* matmul_cpu(float *mat1, int nRows1, int nCols1, float *mat2, int nRows2, 
     return result;
 }
 
+float* matmulTranspose_cpu(float *mat1, int nRows1, int nCols1, float *mat2, int nRows2, int nCols2){
+    // if(nCols1 != nRows2){
+    //     std::cerr << "ERROR: nCols1 != nRows2. These must be equal to be able to apply matrix multiplcation!" << std::endl;
+    //     exit(EXIT_FAILURE);
+    // }
+    float *result = new float[nRows1 * nCols2];
+    for(int row = 0; row < nRows1; ++row){
+        for(int col = 0; col < nRows2; ++col){
+            result[row * nRows2 + col] = 0.f;
+            for(int k = 0; k < nCols1; ++k){
+                result[row * nRows2 + col] += mat1[row * nCols1 + k] * mat2[col * nCols2 + k];
+            }
+        }
+    }
+    return result;
+}
 
+void divideByScalar(float *mat, int nRows, int nCols, float scalar){
+    for(int row = 0; row < nRows; ++row){
+        for(int col = 0; col < nCols; ++col){
+            mat[row * nCols + col] /= scalar;
+        }
+    }
+}
+
+float *selfAttention_cpu(
+    float *Q,
+    float *K,
+    float *V,
+    float *W_q,
+    float *W_k,
+    float *W_v,
+    const int seq_len,
+    const int dim_emb
+){
+    float *QW = matmul_cpu(Q, seq_len, dim_emb, W_q, dim_emb, dim_emb);
+    float *KW = matmul_cpu(K, seq_len, dim_emb, W_k, dim_emb, dim_emb);
+    float *VW = matmul_cpu(V, seq_len, dim_emb, W_v, dim_emb, dim_emb);
+
+    float *QK = matmulTranspose_cpu(QW, seq_len, dim_emb, KW, seq_len, dim_emb);
+    float scalingFactor = sqrt(dim_emb);
+    divideByScalar(QK, seq_len, seq_len, scalingFactor);
+    auto QK_softmax_vec = softmax2D_cpu(QK, seq_len, seq_len);
+    float *QK_softmax = QK_softmax_vec.data();
+    float *attentionOutput = matmul_cpu(QK_softmax, seq_len, seq_len, VW, seq_len, dim_emb);
+
+    delete[] QK;
+    delete[] KW;
+    delete[] VW;
+    delete[] QW;
+    // delete[] QK_softmax;
+
+    return attentionOutput;
+}
 
 /************** Testing functions ************ */
 void compareArrays(float *x, float *y, const int length){
@@ -94,12 +149,12 @@ void test_dotProduct(){
 }
 
 void test_softmax2D(){
-    const int nRows = 2;
-    const int nCols = 3;
+    const int nRows = 32;
+    const int nCols = 32;
     float X[nRows * nCols];
 
     initVector(X, nRows * nCols);
-    printVector(X, nRows * nCols);
+    // printVector(X, nRows * nCols);
     auto softmaxResult_cpu = softmax2D_cpu(X, nRows, nCols);
     float *softmaxResult_gpu = softmax2D_gpu(X, nRows, nCols);
     // printMatrix(softmax_cpu, nRows, nCols);
@@ -127,12 +182,20 @@ void test_matmul(){
 }
 
 void test_attentionLayer(){
-    uint32_t seq_len = 32, dim_emb = 256;
+    uint32_t seq_len = 128, dim_emb = 512;
     AttentionLayer attentionLayer(seq_len, dim_emb, "cuda");
     // Create queries, keys and values
     float *queries = new float[seq_len * dim_emb];
     float *keys = new float[seq_len * dim_emb];
     float *values = new float[seq_len * dim_emb];
+
+    // cpu version data (would be integrated later into AttentionLayer class)
+    float *W_q = new float[seq_len * dim_emb];
+    float *W_k = new float[seq_len * dim_emb];
+    float *W_v = new float[seq_len * dim_emb];
+    initArrayXavier(W_q, seq_len * dim_emb, dim_emb, dim_emb);
+    initArrayXavier(W_k, seq_len * dim_emb, dim_emb, dim_emb);
+    initArrayXavier(W_v, seq_len * dim_emb, dim_emb, dim_emb);
 
     // init 
     initVector(queries, seq_len * dim_emb);
@@ -150,12 +213,19 @@ void test_attentionLayer(){
     copyToCuda(d_keys, keys, seq_len * dim_emb);
     copyToCuda(d_values, values, seq_len * dim_emb);
     
-    float* attentionOutput = attentionLayer.forward(d_queries, d_keys, d_values);
+    float *attentionOutput_gpu = attentionLayer.forward(d_queries, d_keys, d_values);
+    float *attentionOutput_cpu = selfAttention_cpu(queries, keys, values, W_q, W_k, W_v, seq_len, dim_emb);
+    
+    compareArrays(attentionOutput_gpu, attentionOutput_cpu, seq_len * dim_emb);
 
-    delete[] attentionOutput;
+    delete[] attentionOutput_cpu;
+    delete[] attentionOutput_gpu;
     freeCudaMemory(d_queries);
     freeCudaMemory(d_keys);
     freeCudaMemory(d_values);
+    delete[] W_q;
+    delete[] W_k;
+    delete[] W_v;
 }
 
 int main(){
@@ -170,5 +240,4 @@ int main(){
 
     std::cout << "Testing AttentionLayer..." << std::endl;
     test_attentionLayer();
-    std::cout << "Done" << std::endl;
 }
