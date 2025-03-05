@@ -8,6 +8,8 @@
 #include <vector>
 #include <numeric>
 #include "self_attention.cuh"
+#include "AttentionLayer.h"
+#include "cuda_utils.cuh"
 
 /*************** CPU Version ***************** */
 float dot_cpu(float *x, float *y, const int length)
@@ -124,13 +126,49 @@ void test_matmul(){
     delete[] Y;
 }
 
-int main(){
-    // std::cout << "Testing dotProduct..." << std::endl;
-    // test_dotProduct();
+void test_attentionLayer(){
+    uint32_t seq_len = 32, dim_emb = 256;
+    AttentionLayer attentionLayer(seq_len, dim_emb, "cuda");
+    // Create queries, keys and values
+    float *queries = new float[seq_len * dim_emb];
+    float *keys = new float[seq_len * dim_emb];
+    float *values = new float[seq_len * dim_emb];
+
+    // init 
+    initVector(queries, seq_len * dim_emb);
+    initVector(keys, seq_len * dim_emb);
+    initVector(values, seq_len * dim_emb);
+
+    // allocate device memory
+    float *d_queries, *d_keys, *d_values;
+    allocateCudaMemory(&d_queries, seq_len * dim_emb);
+    allocateCudaMemory(&d_values, seq_len * dim_emb);
+    allocateCudaMemory(&d_keys, seq_len * dim_emb);
+
+    // Copy data
+    copyToCuda(d_queries, queries, seq_len * dim_emb);
+    copyToCuda(d_keys, keys, seq_len * dim_emb);
+    copyToCuda(d_values, values, seq_len * dim_emb);
     
-    // std::cout << "Testing softmax2D..." << std::endl;
-    // test_softmax2D();
+    float* attentionOutput = attentionLayer.forward(d_queries, d_keys, d_values);
+
+    delete[] attentionOutput;
+    freeCudaMemory(d_queries);
+    freeCudaMemory(d_keys);
+    freeCudaMemory(d_values);
+}
+
+int main(){
+    std::cout << "Testing dotProduct..." << std::endl;
+    test_dotProduct();
+    
+    std::cout << "Testing softmax2D..." << std::endl;
+    test_softmax2D();
 
     std::cout << "Testing matmul..." << std::endl;
     test_matmul();
+
+    std::cout << "Testing AttentionLayer..." << std::endl;
+    test_attentionLayer();
+    std::cout << "Done" << std::endl;
 }

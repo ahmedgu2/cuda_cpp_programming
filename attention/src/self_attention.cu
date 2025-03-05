@@ -214,7 +214,16 @@ float* softmax2D_gpu(float *X, const int nRows, const int nCols){
     return softmax_host;
 }
 
-float* selfAttention(float *Q, float *K, float *V, const int seq_len, const int dim_emb){
+float* selfAttention_gpu(
+    float *Q,
+    float *K,
+    float *V,
+    float *W_q,
+    float *W_k,
+    float *W_v,
+    const int seq_len,
+    const int dim_emb
+){
     /**
      * @brief Computes the self atttention score (1 Head) as follows:
      *  selfAttention(Q, V, K) = softmax(QW_q x (KW_k)^T / sqrt(dim_emb)) x VW_v
@@ -222,53 +231,36 @@ float* selfAttention(float *Q, float *K, float *V, const int seq_len, const int 
      * @param Q: Query with shape (seq_len, dim_emb)
      * @param K: Keys with shape (seq_len, dim_emb)
      * @param V: Values with shape (seq_len, dim_emb)
+     * @param W_q: Queries weight matrix (dim_emb, dim_emb)
+     * @param W_k: Keys weight matrix (dim_emb, dim_emb)
+     * @param W_v: Values weight matrix (dim_emb, dim_emb)
+     * @param seq_len: sequence length
+     * @param dim_emb: embedding dimension
      * 
-     * @return self attention scores with shape
+     * @return self attention scores with shape (seq_len, dim_emb)
      */
 
-    // TODO: Create a class AttentionLayer and seperate weights creation and initialization (in constructor) and the forward pass (its own seperate method).
-    float *d_Q, *d_K, *d_V, *d_QK, *d_W_Q, *d_W_K, *d_W_V, *d_QW, *d_KW, *d_VW, *d_softmax, *d_attention;
+    float *d_QK, *d_QW, *d_KW, *d_VW, *d_softmax, *d_attention;
 
     // Allocate device memory
-    CUDA_CHECK_ERROR(cudaMalloc(&d_Q, seq_len * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_K, seq_len * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_V, seq_len * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_QK, seq_len * dim_emb * sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_QK, seq_len * seq_len * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_KW, seq_len * dim_emb * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_QW, seq_len * dim_emb * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_VW, seq_len * dim_emb * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_softmax, seq_len * seq_len * sizeof(float)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_attention, seq_len * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_W_Q, dim_emb * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_W_K, dim_emb * dim_emb * sizeof(float)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_W_V, dim_emb * dim_emb * sizeof(float)));
-
-    // TODO: Init weights (will be moved to constructor after refactoring)
-
-    // Copy data from host to device
-    CUDA_CHECK_ERROR(cudaMemcpy(d_Q, Q, seq_len * dim_emb * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK_ERROR(cudaMemcpy(d_K, K, seq_len * dim_emb * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK_ERROR(cudaMemcpy(d_V, V, seq_len * dim_emb * sizeof(float), cudaMemcpyHostToDevice));
 
     // 1. Compute Q x W_q, K x W_k and V x W_v
     int TILE_WIDTH = 16;
     dim3 threadsPerBlock(TILE_WIDTH, TILE_WIDTH);
     dim3 numBlocks((dim_emb + TILE_WIDTH - 1) / TILE_WIDTH, (seq_len + TILE_WIDTH - 1) / TILE_WIDTH);
     size_t sharedMemorySize = 2 * TILE_WIDTH * TILE_WIDTH * sizeof(float);
-    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(d_Q, seq_len, dim_emb, d_W_Q, dim_emb, dim_emb, d_QW, TILE_WIDTH);
+    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(Q, seq_len, dim_emb, W_q, dim_emb, dim_emb, d_QW, TILE_WIDTH);
     CUDA_KERNEL_CHECK_ERROR();
-    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(d_K, seq_len, dim_emb, d_W_K, dim_emb, dim_emb, d_KW, TILE_WIDTH);
+    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(K, seq_len, dim_emb, W_k, dim_emb, dim_emb, d_KW, TILE_WIDTH);
     CUDA_KERNEL_CHECK_ERROR();
-    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(d_V, seq_len, dim_emb, d_W_V, dim_emb, dim_emb, d_VW, TILE_WIDTH);
+    matmul<<<threadsPerBlock, numBlocks, sharedMemorySize>>>(V, seq_len, dim_emb, W_v, dim_emb, dim_emb, d_VW, TILE_WIDTH);
     CUDA_KERNEL_CHECK_ERROR();
-
-    // Free Q, K and V from device memory as they won't be needed anymore
-    cudaFree(d_Q);
-    cudaFree(d_K);
-    cudaFree(d_V);
-    cudaFree(d_W_K);
-    cudaFree(d_W_Q);
-    cudaFree(d_W_V);
 
     // 2. Compute Q x K^T / sqrt(dim_emb)
     float scalingFactor = sqrtf(dim_emb);
@@ -292,7 +284,7 @@ float* selfAttention(float *Q, float *K, float *V, const int seq_len, const int 
     // 3. Compute softmax
     int threadsPerBlock_soft = 512;
     int numBlocks_soft = seq_len;
-    size_t sharedMemorySize_soft = 2 * threadsPerBlock.x * sizeof(float);
+    size_t sharedMemorySize_soft = 2 * threadsPerBlock_soft * sizeof(float);
     softmax2D<<<numBlocks_soft, threadsPerBlock_soft, sharedMemorySize_soft>>>(d_QK, seq_len, seq_len, d_softmax);
     CUDA_KERNEL_CHECK_ERROR();
 

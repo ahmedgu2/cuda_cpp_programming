@@ -17,11 +17,13 @@ set(
     src/dot_product.cu
     src/luong_att.cu
     src/self_attention.cu
+    src/cuda_utils.cu
 )
 
 set(
     CPP_SOURCES
     src/utils.cpp
+    src/AttentionLayer.cpp
 )
 
 # Create a library from cuda files

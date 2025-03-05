@@ -9,3 +9,14 @@ float *matmul_gpu(
     const int nRows2,
     const int nCols2
 );
+
+float* selfAttention_gpu(
+    float *Q,
+    float *K,
+    float *V,
+    float *W_q,
+    float *W_k,
+    float *W_v,
+    const int seq_len,
+    const int dim_emb
+);
