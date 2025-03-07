@@ -180,3 +180,35 @@ Example usage:
 - Implemented the CPU version of selfAttention.
 - Added testing for GPU version and spent some time debugging.
 - Fixed boundary checks and indexing bugs in the `matmulTransposScaled()` kernel.
+
+### Day 29:
+- In the next few days, I'll be implementing different kind of quantization techniques (symmetric, asymmetric, LLM.int8, ...)
+- Implemented **Symmetric quantization**.
+#### Definitions:
+
+1. **Scale factor (S)**:
+   $$
+   S = \frac{\max(|x|)}{2^{b-1} - 1}
+   $$
+   where:
+   - $x_{min}$ and $x_{max}$ are the minimum and maximum floating-point values.
+   - $b$ is the bit width of the quantized representation.
+
+2. **Zero-point (Z)**:  
+   - In symmetric quantization:  
+     $$
+     Z = 0
+     $$
+
+### Quantization and Dequantization:
+
+- **Quantization:**
+  $$
+  q = \text{round}\left(\frac{x}{S}\right)
+  $$
+  where $x$ is the floating-point value, and $q$ is the quantized integer.
+
+- **Dequantization:**
+  $$
+  x = q \cdot S
+  $$
