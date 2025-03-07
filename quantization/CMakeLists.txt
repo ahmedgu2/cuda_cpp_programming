@@ -23,6 +23,7 @@ set(
 set(
     CPP_SOURCES
     src/utils.cpp
+    src/quantization_cpu.cpp
 )
 
 # Create a library from cuda files
