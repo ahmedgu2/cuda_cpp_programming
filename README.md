@@ -191,7 +191,7 @@ Example usage:
    S = \frac{\max(|x|)}{2^{b-1} - 1}
    $$
    where:
-   - $x_{min}$ and $x_{max}$ are the minimum and maximum floating-point values.
+   - $\max(|x|)$ is the maximum floating-point value.
    - $b$ is the bit width of the quantized representation.
 
 2. **Zero-point (Z)**:  
