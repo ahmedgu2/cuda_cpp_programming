@@ -188,9 +188,9 @@ Example usage:
 
 1. **Scale factor (S)**:
 
-   $$
-   S = \frac{\max(|x|)}{2^{b-1} - 1}
-   $$
+$$
+S = \frac{\max(|x|)}{2^{b-1} - 1}
+$$
 
    where:
    - $\max(|x|)$ is the maximum floating-point value.
@@ -199,25 +199,25 @@ Example usage:
 2. **Zero-point (Z)**:  
    - In symmetric quantization:  
 
-     $$
-     Z = 0
-     $$
+$$
+Z = 0
+$$
 
 ### Quantization and Dequantization:
 
 - **Quantization:**
 
-  $$
-  q = \text{round}\left(\frac{x}{S}\right)
-  $$
+$$
+q = \text{round}\left(\frac{x}{S}\right)
+$$
 
   where $x$ is the floating-point value, and $q$ is the quantized integer.
 
 - **Dequantization:**
 
-  $$
-  x = q \cdot S
-  $$
+$$
+x = q \cdot S
+$$
 
 ## DAY 30:
 - Implemented cpu version for 8bit symmetric quantization for testing vs gpu one and fixed a bug in max calculations for the gpu version.
@@ -226,9 +226,9 @@ Example usage:
 
 1. **Scale factor (S)**:  
 
-   $$
-   S = \frac{x_{\max} - x_{\min}}{q_{\max} - q_{\min}}
-   $$
+$$
+S = \frac{x_{\max} - x_{\min}}{q_{\max} - q_{\min}}
+$$
 
    where:  
    - $x_{\max}$, $x_{\min}$ are the maximum and minimum floating-point values.  
@@ -237,22 +237,22 @@ Example usage:
 2. **Zero-point (Z)**:  
    - In asymmetric quantization:  
    
-     $$
-     Z = \text{round} \left( q_{\min} - \frac{x_{\min}}{S} \right)
-     $$
+$$
+Z = \text{round} \left( q_{\min} - \frac{x_{\min}}{S} \right)
+$$
 
 ### Quantization and Dequantization:
 
 - **Quantization:**
 
-  $$
-  q = \text{round} \left( \frac{x}{S} + Z \right)
-  $$
+$$
+q = \text{round} \left( \frac{x}{S} + Z \right)
+$$
   
   where $x$ is the floating-point value, and $q$ is the quantized integer.
 
 - **Dequantization:**
 
-  $$
-  x = (q - Z) \cdot S
-  $$
+$$
+x = (q - Z) \cdot S
+$$
