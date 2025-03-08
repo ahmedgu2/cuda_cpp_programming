@@ -187,15 +187,18 @@ Example usage:
 #### Definitions:
 
 1. **Scale factor (S)**:
+
    $$
    S = \frac{\max(|x|)}{2^{b-1} - 1}
    $$
+
    where:
    - $\max(|x|)$ is the maximum floating-point value.
    - $b$ is the bit width of the quantized representation.
 
 2. **Zero-point (Z)**:  
    - In symmetric quantization:  
+
      $$
      Z = 0
      $$
@@ -203,12 +206,15 @@ Example usage:
 ### Quantization and Dequantization:
 
 - **Quantization:**
+
   $$
   q = \text{round}\left(\frac{x}{S}\right)
   $$
+
   where $x$ is the floating-point value, and $q$ is the quantized integer.
 
 - **Dequantization:**
+
   $$
   x = q \cdot S
   $$
@@ -219,15 +225,18 @@ Example usage:
 #### Definitions:
 
 1. **Scale factor (S)**:  
+
    $$
    S = \frac{x_{\max} - x_{\min}}{q_{\max} - q_{\min}}
    $$
+
    where:  
    - $x_{\max}$, $x_{\min}$ are the maximum and minimum floating-point values.  
    - $q_{\max}$, $q_{\min}$ are the maximum and minimum quantized integer values.  
 
 2. **Zero-point (Z)**:  
    - In asymmetric quantization:  
+   
      $$
      Z = \text{round} \left( q_{\min} - \frac{x_{\min}}{S} \right)
      $$
@@ -235,12 +244,15 @@ Example usage:
 ### Quantization and Dequantization:
 
 - **Quantization:**
+
   $$
   q = \text{round} \left( \frac{x}{S} + Z \right)
   $$
+  
   where $x$ is the floating-point value, and $q$ is the quantized integer.
 
 - **Dequantization:**
+
   $$
   x = (q - Z) \cdot S
   $$
