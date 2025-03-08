@@ -18,6 +18,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(
     CUDA_SOURCES
     src/symmetric.cu
+    src/asymmetric.cu
+    src/cuda_utils.cu
 )
 
 set(

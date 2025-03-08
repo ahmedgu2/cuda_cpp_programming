@@ -15,3 +15,12 @@ void symmetricQuant_cpu(float *array, size_t length, int8_t *q_array){
     for(int i = 0; i < length; ++i)
         q_array[i] = roundf(array[i] / S);
 }
+
+void asymmetricQuant_cpu(float *array, size_t length, uint8_t *q_array){
+    float max_ = *std::max_element(array, array + length);
+    float min_ = *std::min_element(array, array + length);
+    float S = (max_ - min_) / 255;
+    uint8_t Z = round(-min_ / S);
+    for(int i = 0; i < length; ++i)
+        q_array[i] = roundf(array[i] / S + Z);
+}

@@ -1,4 +1,5 @@
 #include "symmetric.cuh"
+#include "asymmetric.cuh"
 #include "quantization_cpu.h"
 #include "utils.h"
 #include <iostream>
@@ -25,7 +26,7 @@ void test_symmetricQuant(){
         initVector(array, length);
 
         symmetricQuant_cpu(array, length, q_array_cpu);
-        quantize_gpu(array, length, 8, q_array_gpu);
+        quantizeSymmetric_gpu(array, length, 8, q_array_gpu);
 
         compareArrays(q_array_gpu, q_array_cpu, length);
 
@@ -36,10 +37,35 @@ void test_symmetricQuant(){
     }catch(std::bad_alloc& e){
         std::cerr << e.what();
     }
+}
 
+void test_asymmetricQuant(){
+    int length = 1e5;
+    try{
+        float *array = new float[length];
+        uint8_t *q_array_gpu = new uint8_t[length];
+        uint8_t *q_array_cpu = new uint8_t[length];
+
+        initVector(array, length);
+
+        asymmetricQuant_cpu(array, length, q_array_cpu);
+        quantizeAsymmetric_gpu(array, length, 8, q_array_gpu);
+
+        compareArrays(q_array_gpu, q_array_cpu, length);
+
+        delete[] array;
+        delete[] q_array_cpu;
+        delete[] q_array_gpu;
+
+    }catch(std::bad_alloc& e){
+        std::cerr << e.what();
+    }
 }
 
 int main(){
     std::cout << "testing symmetric quantization" << std::endl;
     test_symmetricQuant();
+
+    std::cout << "testing asymmetric quantization" << std::endl;
+    test_asymmetricQuant();
 }
