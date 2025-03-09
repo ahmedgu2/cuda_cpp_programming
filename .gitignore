@@ -40,3 +40,6 @@
 data
 build
 profile
+dist
+*.egg-info
+*.pyd
