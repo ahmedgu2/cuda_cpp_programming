@@ -1,0 +1,14 @@
+# quantize_binding.pyi
+import torch
+from typing import Any, Optional
+
+def symmetric_quantization_gpu(array: torch.Tensor) -> torch.Tensor:
+    """
+    Perform symmetric quantization on GPU.
+    
+    Args:
+        array: Input tensor to quantize (float32)
+        
+    Returns:
+        Quantized int8 tensor
+    """

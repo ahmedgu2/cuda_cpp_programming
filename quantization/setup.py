@@ -2,10 +2,10 @@ from setuptools import setup
 from torch.utils.cpp_extension import CUDAExtension, BuildExtension
 
 setup(
-    name="quantize_cuda",
+    name="quantize_binding",
     ext_modules=[
         CUDAExtension(
-            name="quantize_cuda",                         # Name of the extension
+            name="quantize_binding",                         # Name of the extension
             sources=[
                 "bindings/quantize_binding.cpp",         # PyTorch binding code
                 "src/symmetric.cu",          # CUDA kernel file
@@ -15,5 +15,8 @@ setup(
             include_dirs=["src"]            # Include directories for header files
         ),
     ],
+    package_data={
+        "quantize_binding": ["bindings/*.ipy"]
+    },
     cmdclass={"build_ext": BuildExtension},  # Ensures the extension is built
 )
