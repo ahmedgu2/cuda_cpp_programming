@@ -264,6 +264,6 @@ $$
 ## Day 32:
 - Read the **LLM.int8()** paper.
 - Started implementing the LLM.int8() specific kernels.
-- Implmented **vector-wise quantization** which applies 8 bits absmax quantization row-wise (will implement column-wise later).
+- Implemented **vector-wise quantization** which applies 8 bits absmax quantization row-wise (will implement column-wise later).
 - Implemented the CPU version and tested my kernel against it.
 - Next up will be implementing the mixed-precision multiplication for outliers / non-outliers matrices.
