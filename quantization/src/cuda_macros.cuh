@@ -25,3 +25,5 @@
             exit(EXIT_FAILURE);                                                              \
         }                                                                                    \
     } while (0)
+
+#define LOG(msg) std::cout << msg << std::endl

@@ -20,6 +20,7 @@ set(
     src/symmetric.cu
     src/asymmetric.cu
     src/cuda_utils.cu
+    src/LLM_int8.cu
 )
 
 set(

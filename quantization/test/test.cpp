@@ -1,6 +1,7 @@
 #include "symmetric.cuh"
 #include "asymmetric.cuh"
 #include "quantization_cpu.h"
+#include "LLM_int8.cuh"
 #include "utils.h"
 #include <iostream>
 
@@ -62,10 +63,40 @@ void test_asymmetricQuant(){
     }
 }
 
+void test_rowWiseQuant8bits(){
+    const size_t nRows = 5, nCols = 1024;
+    size_t length = nRows * nCols;
+
+    try{
+        float *X = new float[length];
+        int8_t *q_X_cpu = new int8_t[length];
+        int8_t *q_X_gpu = new int8_t[length];
+
+        initVector(X, length);
+
+        rowWiseQuant8bits_cpu(X, nRows, nCols, q_X_cpu);
+        std::cout << "\t Running gpu version..." << std::endl;
+        rowWiseQuant8bits_gpu(X, nRows, nCols, q_X_gpu);
+        std::cout << "\t GPU version finished!" << std::endl;
+        
+        compareArrays(q_X_gpu, q_X_cpu, length);
+
+        delete[] X;
+        delete[] q_X_cpu;
+        delete[] q_X_gpu;
+
+    }catch(std::bad_alloc& e){
+        std::cerr << e.what();
+    }
+}
+
 int main(){
     std::cout << "testing symmetric quantization" << std::endl;
     test_symmetricQuant();
 
     std::cout << "testing asymmetric quantization" << std::endl;
     test_asymmetricQuant();
+
+    std::cout << "testing 8 bits row-wise quantization..." << std::endl;
+    test_rowWiseQuant8bits();
 }
