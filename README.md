@@ -267,3 +267,8 @@ $$
 - Implemented **vector-wise quantization** which applies 8 bits absmax quantization row-wise (will implement column-wise later).
 - Implemented the CPU version and tested my kernel against it.
 - Next up will be implementing the mixed-precision multiplication for outliers / non-outliers matrices.
+
+## Day 33:
+- Continued implementing LLM.int8().
+- Implemented gpu and cpu version of **column-wise quantization** and tested it.
+- Implemented the third step of LLM.int8() which is basically a matmul between 2 *int8* which results in a *int32* matrix.
