@@ -43,3 +43,16 @@ void rowWiseQuant8bits_cpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){
         }
     }
 }
+
+void columnWiseQuant8bits_cpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){
+    for(int col = 0; col < nCols; ++col){
+        float abs_max = 0;
+        for(int row = 0; row < nRows; ++row){
+            abs_max = fmax(abs_max, abs(X[row * nCols + col]));
+        }
+        float S = 127 / abs_max;
+        for(int row = 0; row < nRows; ++row){
+            q_X[row * nCols + col] = roundf(X[row * nCols + col] * S);
+        }
+    }
+}

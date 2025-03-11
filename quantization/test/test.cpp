@@ -90,6 +90,33 @@ void test_rowWiseQuant8bits(){
     }
 }
 
+void test_columnWiseQuant8bits(){
+    const size_t nRows = 1024, nCols = 5;
+    size_t length = nRows * nCols;
+
+    try{
+        float *X = new float[length];
+        int8_t *q_X_cpu = new int8_t[length];
+        int8_t *q_X_gpu = new int8_t[length];
+
+        initVector(X, length);
+
+        columnWiseQuant8bits_cpu(X, nRows, nCols, q_X_cpu);
+        std::cout << "\t Running gpu version..." << std::endl;
+        columnWiseQuant8bits_gpu(X, nRows, nCols, q_X_gpu);
+        std::cout << "\t GPU version finished!" << std::endl;
+        
+        compareArrays(q_X_gpu, q_X_cpu, length);
+
+        delete[] X;
+        delete[] q_X_cpu;
+        delete[] q_X_gpu;
+
+    }catch(std::bad_alloc& e){
+        std::cerr << e.what();
+    }
+}
+
 int main(){
     std::cout << "testing symmetric quantization" << std::endl;
     test_symmetricQuant();
@@ -99,4 +126,7 @@ int main(){
 
     std::cout << "testing 8 bits row-wise quantization..." << std::endl;
     test_rowWiseQuant8bits();
+
+    std::cout << "testing 8 bits column-wise quantization..." << std::endl;
+    test_columnWiseQuant8bits();
 }
