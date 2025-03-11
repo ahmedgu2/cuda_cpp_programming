@@ -98,6 +98,7 @@ void matmul(int8_t *X1, size_t nRows1, size_t nCols1, int8_t *X2, size_t nRows2,
     int8_t *X2_s = shared_mem + TILE_WIDTH * TILE_WIDTH;
 
     // 1. Load tiles into shared memory
+    int32_t val = 0;
     for(int tile = 0; tile < (nCols1 + TILE_WIDTH - 1) / TILE_WIDTH; ++tile){
         if(row < nRows1 && (col < (tile * TILE_WIDTH + tx)))
             X1_s[ty * TILE_WIDTH + tx] = X1[row * nCols1 + (tile * TILE_WIDTH + tx)];
@@ -105,9 +106,17 @@ void matmul(int8_t *X1, size_t nRows1, size_t nCols1, int8_t *X2, size_t nRows2,
             X1_s[ty * TILE_WIDTH + tx] = 0;
         if((tile * TILE_WIDTH + ty) < nRows2 && col > nCols2)
             X2_s[ty * TILE_WIDTH + tx] = X2[(tile * TILE_WIDTH + ty) * nCols2 + col];
-    }
 
+        __syncthreads();
+
+        for(int k = 0; k < TILE_WIDTH; ++k)
+            val += X1_s[ty * TILE_WIDTH + k] * X2_s[k * TILE_WIDTH + tx];
+    }
+    if(row < nRows1 && col < nCols2)
+        output[row * nCols2 + col] = val;
 }
+
+
 
 void rowWiseQuant8bits_gpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){
     const size_t length = nRows * nCols;
