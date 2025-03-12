@@ -116,7 +116,16 @@ void matmul(int8_t *X1, size_t nRows1, size_t nCols1, int8_t *X2, size_t nRows2,
         output[row * nCols2 + col] = val;
 }
 
+__global__
+void dequentize(int32_t *q_X, size_t nRows, size_t nCols, float *rowsScale, float *columnsScale, float *X){
+    size_t length = nRows * nCols;
+    int row = threadIdx.y + blockDim.y * blockIdx.y;
+    int col = threadIdx.x + blockDim.x * blockIdx.x;
 
+    if(row < nRows && col < nCols){
+        X[row * nCols + col] = q_X * (1 / (rowsScale[row] * columnsScale[col]));
+    }
+}
 
 void rowWiseQuant8bits_gpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){
     const size_t length = nRows * nCols;
