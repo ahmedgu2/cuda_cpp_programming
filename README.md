@@ -272,3 +272,10 @@ $$
 - Continued implementing LLM.int8().
 - Implemented gpu and cpu version of **column-wise quantization** and tested it.
 - Implemented the third step of LLM.int8() which is basically a matmul between 2 *int8* which results in a *int32* matrix.
+
+## Day 34:
+- Finished working on the building blocks of **LLM.int8()** quantization method.
+- Implemented **tiled matrix multiplication** and learned how to dynamically allocate shared memory inside templated functions.
+- Implemented **dequentization** kernel.
+- Implemented **outlier detection** kernel to get the columns that contain at least 1 value higher than `threshold` (defaults to 6).
+- Implemented cpu versions + basic testing for all the above kernels.
