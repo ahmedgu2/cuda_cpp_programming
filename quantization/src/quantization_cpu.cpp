@@ -56,3 +56,13 @@ void columnWiseQuant8bits_cpu(float *X, size_t nRows, size_t nCols, int8_t *q_X)
         }
     }
 }
+
+void outliersColumns_cpu(float *X, size_t nRows, size_t nCols, bool *isOutlierCol, float threshold){
+    for(int row = 0; row < nRows; ++row){
+        for(int col = 0; col < nCols; ++col){
+            if(X[row * nCols + col] >= threshold){
+                isOutlierCol[col] = 1;
+            }
+        }
+    }
+}

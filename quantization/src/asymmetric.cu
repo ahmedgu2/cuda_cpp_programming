@@ -66,7 +66,6 @@ void quantizeAsymmetric_gpu(float *array, size_t length, int bits, uint8_t *q_ar
 
     float S = (max - min) / 255;
     uint8_t Z = roundf(-min / S);
-    threadsPerBlock = 1024;
     quantize<<<numBlocks, threadsPerBlock>>>(d_array, length, S, Z, d_q_array);
     CUDA_KERNEL_CHECK_ERROR();
     

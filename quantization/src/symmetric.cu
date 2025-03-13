@@ -49,7 +49,6 @@ void quantizeSymmetric_gpu(float *array, size_t length, int bits, int8_t *q_arra
     CUDA_CHECK_ERROR(cudaMemcpy(&max, &d_blockMax[0], sizeof(float), cudaMemcpyDeviceToHost));
 
     float S = max / (powf(2, bits - 1) - 1);
-    threadsPerBlock = 1024;
     quantize<<<numBlocks, threadsPerBlock>>>(d_array, length, S, d_q_array);
     CUDA_KERNEL_CHECK_ERROR();
     

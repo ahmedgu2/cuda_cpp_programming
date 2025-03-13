@@ -1,4 +1,5 @@
 #include "cuda_macros.cuh"
+#include "LLM_int8.cuh"
 #include <cstdint>
 
 /**
@@ -11,7 +12,7 @@
  */
 
  __global__
- void rowWiseQuant8bits(float *X, size_t nRows, size_t nCols, int8_t *q_X, float *rowsMax){
+ void rowWiseQuant8bits(float *X, size_t nRows, size_t nCols, int8_t *q_X, float *rowsScale){
     /**
      * Apply quantization row-wise:
      *  Q_{X[i, j]} = round(S_i * X[i, j])
@@ -41,8 +42,8 @@
     __syncthreads();
 
     // 2. Quantize row
-    rowsMax[row] = max_s[0];
     float S = 127 / max_s[0];
+    rowsScale[row] = S;
     for(int i = tx; i < nCols; i += stride){
         int indx = row * nCols + i;
         q_X[indx] = __float2int_rn(S * X[indx]);
@@ -50,7 +51,7 @@
 }
 
 __global__
-void columnWiseQuant8bits(float *X, size_t nRows, size_t nCols, int8_t *q_X, float *columnsMax){
+void columnWiseQuant8bits(float *X, size_t nRows, size_t nCols, int8_t *q_X, float *columnsScale){
     /**
      * Apply quantization column-wise:
      *  Q_{X[i, j]} = round(S_j * X[i, j])
@@ -79,38 +80,42 @@ void columnWiseQuant8bits(float *X, size_t nRows, size_t nCols, int8_t *q_X, flo
 
     __syncthreads();
     // 2. Quantize column-wise
-    columnsMax[col] = max_s[0];
     float S = 127 / max_s[0];
+    columnsScale[col] = S;
     for(int i = tx; i < nRows; i += stride){
         q_X[i * nCols + col] = __float2int_rn(S * X[i * nCols + col]);
     }
 }
 
+template <typename IN_TYPE, typename OUT_TYPE>
 __global__
-void matmul(int8_t *X1, size_t nRows1, size_t nCols1, int8_t *X2, size_t nRows2, size_t nCols2, int32_t *output){
+void matmul(IN_TYPE *X1, size_t nRows1, size_t nCols1, IN_TYPE *X2, size_t nRows2, size_t nCols2, OUT_TYPE *output){
     int tx = threadIdx.x, ty = threadIdx.y;
     int col = tx + blockDim.x * blockIdx.x;
     int row = ty + blockDim.y * blockIdx.y;
     const int TILE_WIDTH = blockDim.x;
 
-    extern __shared__ int8_t shared_mem[];
-    int8_t *X1_s = shared_mem;
-    int8_t *X2_s = shared_mem + TILE_WIDTH * TILE_WIDTH;
+    extern __shared__ __align__(sizeof(IN_TYPE)) unsigned char shared_mem[];
+    IN_TYPE *X1_s = reinterpret_cast<IN_TYPE*>(shared_mem);
+    IN_TYPE *X2_s = X1_s + TILE_WIDTH * TILE_WIDTH;
 
     // 1. Load tiles into shared memory
-    int32_t val = 0;
+    OUT_TYPE val = 0;
     for(int tile = 0; tile < (nCols1 + TILE_WIDTH - 1) / TILE_WIDTH; ++tile){
-        if(row < nRows1 && (col < (tile * TILE_WIDTH + tx)))
+        if(row < nRows1 && ( (tile * TILE_WIDTH + tx) < nCols1))
             X1_s[ty * TILE_WIDTH + tx] = X1[row * nCols1 + (tile * TILE_WIDTH + tx)];
         else
             X1_s[ty * TILE_WIDTH + tx] = 0;
-        if((tile * TILE_WIDTH + ty) < nRows2 && col > nCols2)
+        if((tile * TILE_WIDTH + ty) < nRows2 && col < nCols2)
             X2_s[ty * TILE_WIDTH + tx] = X2[(tile * TILE_WIDTH + ty) * nCols2 + col];
-
+        else
+            X2_s[ty * TILE_WIDTH + tx] = 0;
         __syncthreads();
 
         for(int k = 0; k < TILE_WIDTH; ++k)
             val += X1_s[ty * TILE_WIDTH + k] * X2_s[k * TILE_WIDTH + tx];
+
+        __syncthreads();
     }
     if(row < nRows1 && col < nCols2)
         output[row * nCols2 + col] = val;
@@ -118,15 +123,36 @@ void matmul(int8_t *X1, size_t nRows1, size_t nCols1, int8_t *X2, size_t nRows2,
 
 __global__
 void dequentize(int32_t *q_X, size_t nRows, size_t nCols, float *rowsScale, float *columnsScale, float *X){
-    size_t length = nRows * nCols;
-    int row = threadIdx.y + blockDim.y * blockIdx.y;
-    int col = threadIdx.x + blockDim.x * blockIdx.x;
+    int y = threadIdx.y + blockDim.y * blockIdx.y;
+    int x = threadIdx.x + blockDim.x * blockIdx.x;
 
-    if(row < nRows && col < nCols){
-        X[row * nCols + col] = q_X * (1 / (rowsScale[row] * columnsScale[col]));
+    // Grid-stride loop
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
+    for(int row = y; row < nRows; row += stride_x){
+        for(int col = x; col < nCols; col += stride_y){
+            X[row * nCols + col] = q_X[row * nCols + col] * (1 / (rowsScale[row] * columnsScale[col]));
+        }
     }
 }
 
+__global__
+void outliersColumns(float* X, size_t nRows, size_t nCols, bool *isOutlierCol, float threshold = 6.f){
+    int y = threadIdx.y + blockDim.y * blockIdx.y;
+    int x = threadIdx.x + blockDim.x * blockIdx.x;
+
+    // Grid-stride loop
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
+    for(int row = y; row < nRows; row += stride_x){
+        for(int col = x; col < nCols; col += stride_y){
+            if(X[row * nCols + col] >= threshold)
+                isOutlierCol[col] = 1;
+        }
+    }
+}
+
+/************************************************* Kernel wrappers ******************************************************** */
 void rowWiseQuant8bits_gpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){
     const size_t length = nRows * nCols;
     float *d_X, *d_rowsMax;
@@ -174,3 +200,63 @@ void columnWiseQuant8bits_gpu(float *X, size_t nRows, size_t nCols, int8_t *q_X)
     CUDA_CHECK_ERROR(cudaFree(d_X));
     CUDA_CHECK_ERROR(cudaFree(d_colsMax));
 }
+
+template <typename IN_TYPE, typename OUT_TYPE>
+void matmul_gpu(IN_TYPE *X1, size_t nRows1, size_t nCols1, IN_TYPE *X2, size_t nRows2, size_t nCols2, OUT_TYPE *result){
+    size_t size1 = nRows1 * nCols1 * sizeof(IN_TYPE);
+    size_t size2 = nRows2 * nCols2 * sizeof(IN_TYPE);
+    size_t sizer = nRows1 * nCols2 * sizeof(OUT_TYPE);
+
+    IN_TYPE *d_mat1, *d_mat2;
+    OUT_TYPE *d_result;
+    CUDA_CHECK_ERROR(cudaMalloc(&d_mat1, size1));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_mat2, size2));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_result, sizer));
+
+    // Copy matrices to device
+    CUDA_CHECK_ERROR(cudaMemcpy(d_mat1, X1, size1, cudaMemcpyHostToDevice));
+    CUDA_CHECK_ERROR(cudaMemcpy(d_mat2, X2, size2, cudaMemcpyHostToDevice));
+
+    // Launch Kernel
+    const int TILE_WIDTH = 16;
+    dim3 threadsPerBlock(TILE_WIDTH, TILE_WIDTH); // number of threads per dimension needs to be equal to TILE_DIM.
+    dim3 numBlocks((nCols2 + threadsPerBlock.y - 1) / threadsPerBlock.y, (nRows1 + threadsPerBlock.x - 1) / threadsPerBlock.x);
+    size_t sharedMemorySize = 2 * TILE_WIDTH * TILE_WIDTH * sizeof(IN_TYPE);
+
+    matmul<IN_TYPE, OUT_TYPE><<<numBlocks, threadsPerBlock, sharedMemorySize>>>(d_mat1, nRows1, nCols1, d_mat2, nRows2, nCols2, d_result);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    // Copy to host
+    CUDA_CHECK_ERROR(cudaMemcpy(result, d_result, sizer, cudaMemcpyDeviceToHost));
+    
+    cudaFree(d_mat1);
+    cudaFree(d_mat2);
+    cudaFree(d_result);
+}
+
+void outliersColumns_gpu(float *X, size_t nRows, size_t nCols, bool *isOutlierCol, float threshold){
+    const size_t length = nRows * nCols;
+    float *d_X;
+    bool *d_isOutlierCol;
+
+    CUDA_CHECK_ERROR(cudaMalloc(&d_X, length * sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_isOutlierCol, nCols * sizeof(bool)));
+
+    CUDA_CHECK_ERROR(cudaMemcpy(d_X, X, length * sizeof(float), cudaMemcpyHostToDevice));
+
+    const int BLOCK_DIM = 32;
+    dim3 threadsPerBlock(BLOCK_DIM, BLOCK_DIM); // number of threads per dimension needs to be equal to TILE_DIM.
+    dim3 numBlocks((nCols + threadsPerBlock.y - 1) / threadsPerBlock.y, (nRows + threadsPerBlock.x - 1) / threadsPerBlock.x);
+
+    outliersColumns<<<numBlocks, threadsPerBlock>>>(d_X, nRows, nCols, d_isOutlierCol);
+    CUDA_KERNEL_CHECK_ERROR();
+
+    CUDA_CHECK_ERROR(cudaMemcpy(isOutlierCol, d_isOutlierCol, nCols * sizeof(bool), cudaMemcpyDeviceToHost));
+
+    CUDA_CHECK_ERROR(cudaFree(d_X));
+    CUDA_CHECK_ERROR(cudaFree(d_isOutlierCol));
+}
+
+
+template void matmul_gpu(int8_t*, size_t, size_t, int8_t*, size_t, size_t, int32_t*);
+template void matmul_gpu(float*, size_t, size_t, float*, size_t, size_t, float*);
