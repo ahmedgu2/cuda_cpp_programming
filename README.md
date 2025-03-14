@@ -279,3 +279,10 @@ $$
 - Implemented **dequentization** kernel.
 - Implemented **outlier detection** kernel to get the columns that contain at least 1 value higher than `threshold` (defaults to 6).
 - Implemented cpu versions + basic testing for all the above kernels.
+
+## Day 35:
+- Converted `rowWiseQuant8bits()` to work with half precision (fp16) and refactored the testing function to handle it.
+- Added pytorch binding for that function to allow testing vs pytorch version. 
+- Learned more about `torch.profiler` and run benchmarks against *bitsandbytes* `int8_vectorwise_quant()` function.
+- My cuda implementation is 30% slower: 8.59ms vs 11.6ms. Note that my cuda kernel (i.e. computation) runs in 406us, which means a lot of the time is spent copying data between host and device.
+- I'll dig deeper into profling to see what bottlenecks my implementation has and how to improve it.

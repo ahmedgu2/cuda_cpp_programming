@@ -11,8 +11,13 @@ setup(
                 "src/symmetric.cu",          # CUDA kernel file
                 "src/utils.cpp",            # Utility CUDA file
                 "src/cuda_utils.cu",            # Utility CUDA file
+                "src/LLM_int8.cu"
             ],
-            include_dirs=["src"]            # Include directories for header files
+            include_dirs=["src"],            # Include directories for header files
+            extra_compile_args={
+                'cxx': ['-O3', '-Wall'],  # C++ compiler optimization flags
+                'nvcc': ['-O3', '--use_fast_math']  # CUDA compiler flags (modify the architecture based on your GPU)
+            }
         ),
     ],
     package_data={

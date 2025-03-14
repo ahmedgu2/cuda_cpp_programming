@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include <iostream>
 #include "symmetric.cuh"
+#include "LLM_int8.cuh"
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
@@ -17,7 +18,37 @@ torch::Tensor symmetric_quantization_gpu(torch::Tensor& array){
     return q_array;
 }
 
+torch::Tensor row_wise_quantization_gpu(torch::Tensor& tensor){
+    auto q_tensor = torch::zeros_like(tensor, torch::kInt8);
+
+    int nRows = tensor.size(0);
+    int nCols = tensor.size(1);
+
+    __half *tensor_ptr = reinterpret_cast<__half*>(tensor.data_ptr<at::Half>());
+    int8_t *q_tensor_ptr = q_tensor.data_ptr<int8_t>();
+
+    rowWiseQuant8bits_gpu(tensor_ptr, nRows, nCols, q_tensor_ptr);
+    return q_tensor;
+}
+
+torch::Tensor column_wise_quantization_gpu(torch::Tensor& tensor){
+    auto q_tensor = torch::zeros_like(tensor, torch::kInt8);
+
+    int nRows = tensor.size(0);
+    int nCols = tensor.size(1);
+
+    float *tensor_ptr = tensor.data_ptr<float>();
+    int8_t *q_tensor_ptr = q_tensor.data_ptr<int8_t>();
+
+    columnWiseQuant8bits_gpu(tensor_ptr, nRows, nCols, q_tensor_ptr);
+    return q_tensor;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("symmetric_quantization_gpu", &symmetric_quantization_gpu, 
           "Symmetric quantization on GPU", py::arg("array"));
+    m.def("row_wise_quantization_gpu", &row_wise_quantization_gpu,
+        "Row wise quantization on GPU");
+    m.def("column_wise_quantization_gpu", &column_wise_quantization_gpu,
+        "Column wise quantization on GPU");
 }
