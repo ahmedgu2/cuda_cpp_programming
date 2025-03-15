@@ -161,7 +161,7 @@ void rowWiseQuant8bits_gpu(__half *X, size_t nRows, size_t nCols, int8_t *q_X){
 
     CUDA_CHECK_ERROR(cudaMalloc(&d_X, length * sizeof(__half)));
     CUDA_CHECK_ERROR(cudaMalloc(&d_q_X, length * sizeof(int8_t)));
-    CUDA_CHECK_ERROR(cudaMalloc(&d_rowsMax, nRows * sizeof(int8_t)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_rowsMax, nRows * sizeof(__half)));
 
     CUDA_CHECK_ERROR(cudaMemcpy(d_X, X, length * sizeof(__half), cudaMemcpyHostToDevice));
 
