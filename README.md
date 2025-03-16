@@ -303,7 +303,7 @@ $$
       => Modified my kernel wrapper to directly take device pointers from torch tensors.
    - I was using `torch::zeros()` to init tensors that will contain the results, which is inefficiant as it has an extra uncessary init operation. 
    
-      => Replaced it with `torch.empty()`.
+      => Replaced it with `torch::empty()`.
 - Created more robust benchmarking:
   - 50 runs per function to get more reliable statistics.
   - Use `torch.cuda.synchronize()` before and after function calls to ensure device readiness.
