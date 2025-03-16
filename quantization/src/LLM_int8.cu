@@ -2,6 +2,7 @@
 #include "LLM_int8.cuh"
 #include <cstdint>
 #include <cuda_fp16.h>
+// #include <cuda_runtime.h>
 
 /**
  * TODO: implement the following:
@@ -176,6 +177,21 @@ void rowWiseQuant8bits_gpu(__half *X, size_t nRows, size_t nCols, int8_t *q_X){
     CUDA_CHECK_ERROR(cudaFree(d_q_X));
     CUDA_CHECK_ERROR(cudaFree(d_X));
     CUDA_CHECK_ERROR(cudaFree(d_rowsMax));
+}
+
+void rowWiseQuant8bits_gpu2(__half *d_X, size_t nRows, size_t nCols, int8_t *d_q_X, __half *d_rowsScale){
+    /**
+     * Same as rowWiseQuant8bits_gpu, only difference is param d_X will be already on device (from torch's `tensor.to("cuda")`)
+     * and d_q_X and d_rowsScale are pointer to pointers in device memory.
+     * 
+     */
+    const size_t length = nRows * nCols;
+
+    const int threadsPerBlock = 1024;
+    const int numBlocks = nRows;
+    const size_t sharedMemorySize = threadsPerBlock * sizeof(__half);
+    rowWiseQuant8bits<<<numBlocks, threadsPerBlock, sharedMemorySize>>>(d_X, nRows, nCols, d_q_X, d_rowsScale);
+    CUDA_KERNEL_CHECK_ERROR();
 }
 
 void columnWiseQuant8bits_gpu(float *X, size_t nRows, size_t nCols, int8_t *q_X){

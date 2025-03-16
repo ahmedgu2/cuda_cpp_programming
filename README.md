@@ -286,3 +286,30 @@ $$
 - Learned more about `torch.profiler` and run benchmarks against *bitsandbytes* `int8_vectorwise_quant()` function.
 - My cuda implementation is 30% slower: 8.59ms vs 11.6ms. Note that my cuda kernel (i.e. computation) runs in 406us, which means a lot of the time is spent copying data between host and device.
 - I'll dig deeper into profling to see what bottlenecks my implementation has and how to improve it.
+
+## Day 36:
+- Focused on profiling C++ and Python-binded CUDA kernels using Nvidia Nsight Systems and NVTX.
+- Identified bottlenecks in vector-wise quantization, primarily due to:
+   - Unnecessary memory allocation which leads to more overhead for copying data between CPU and GPU freeing memory.
+- Wrapper function around the kernel is 30% slower due to these issues.
+- However, the actual kernel execution time is 39µs, faster than BitsandBytes (54µs).
+- BitsandBytes includes an extra outlier detection step, which accounts for some of the difference.
+
+## Day 37:
+- Detected my implementation's bottlenecks and optimized it:
+   - My kernel wrapper was taking host pointers (from `torch::Tensor.data_ptr<>(tensor)`) and then allocating, copying and freeing new device arrays which added most of the overhead, wheras bnb implementation takes
+   tensors already on device.
+      
+      => Modified my kernel wrapper to directly take device pointers from torch tensors.
+   - I was using `torch::zeros()` to init tensors that will contain the results, which is inefficiant as it has an extra uncessary init operation. 
+   
+      => Replaced it with `torch.empty()`.
+- Created more robust benchmarking:
+  - 50 runs per function to get more reliable statistics.
+  - Use `torch.cuda.synchronize()` before and after function calls to ensure device readiness.
+### Results:
+  Benchmark was done on a **4096x4096** tensor.
+  - *My implementation*: ***34us***.
+  - *Bitsandbytes implementation*: ***53us***.
+
+Note that bitsandbytes implementation contains 1 extra step for detecting the outliers.
