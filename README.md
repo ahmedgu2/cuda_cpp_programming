@@ -313,3 +313,8 @@ $$
   - *Bitsandbytes implementation*: ***53us***.
 
 Note that bitsandbytes implementation contains 1 extra step for detecting the outliers.
+
+## Day 38:
+- Back to reading PMPP. I started reading Chapter 14 about **sparse matrix-vector multiplication**.
+- Implemented a **COOMatrix** class to represent sparse matrices in the COO format.
+- Implemented **SpMV** for COO matrices.
