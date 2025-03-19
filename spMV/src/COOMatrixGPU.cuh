@@ -8,10 +8,12 @@ class COOMatrixGPU{
 public:
 
     COOMatrixGPU(float* mat, size_t nRows, size_t nCols){
+        this->nRows = nRows;
+        this->nCols = nCols;
         // Compute non zeros
-        size_t h_numNonZeros = 0;
-        for(int i = 0; i < nRows; ++i){
-            for(int j = 0; j < nCols; ++j){
+        h_numNonZeros = 0;
+        for(size_t i = 0; i < nRows; ++i){
+            for(size_t j = 0; j < nCols; ++j){
                 if(mat[i * nCols + j] != 0)
                     h_numNonZeros++;
             }
@@ -23,8 +25,8 @@ public:
         float *h_value = new float[h_numNonZeros];
 
         size_t indx = 0;
-        for(int i = 0; i < nRows; ++i){
-            for(int j = 0; j < nCols; ++j){
+        for(size_t i = 0; i < nRows; ++i){
+            for(size_t j = 0; j < nCols; ++j){
                 if(mat[i * nCols + j] != 0){
                     h_rowIndx[indx] = i;
                     h_colIndx[indx] = j;
@@ -61,10 +63,20 @@ public:
     __device__ uint32_t getRowIndx(uint32_t i) const {return rowIndx[i];}
     __device__ uint32_t getColIndx(uint32_t i) const {return colIndx[i];}
     __device__ float getValue(uint32_t i) const {return value[i];}
-    __device__ size_t getNumNonZeros() const {return *numNonZeros;}
+    __host__ __device__ size_t getNumNonZeros() const {
+        #ifdef __CUDA_ARCH__
+            // Safe to dereference device pointer
+            return *numNonZeros;
+        #else
+            // Fallback to host pointer
+            return h_numNonZeros;
+        #endif
+    }
 
 private:
     uint32_t* rowIndx, *colIndx;
-    float* value;
+    float *value;
     size_t *numNonZeros;
+    size_t h_numNonZeros;
+    size_t nRows, nCols;
 };
