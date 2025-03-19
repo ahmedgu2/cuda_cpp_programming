@@ -51,13 +51,28 @@ public:
         delete[] h_rowIndx;
         delete[] h_colIndx;
         delete[] h_value;
+
+        refCount = new std::atomic<int>(1);
+    }
+
+    // Copy constructor
+    COOMatrixGPU(const COOMatrixGPU& other)
+        : rowIndx(other.rowIndx), colIndx(other.colIndx), value(other.value),
+          numNonZeros(other.numNonZeros), h_numNonZeros(other.h_numNonZeros),
+          nRows(other.nRows), nCols(other.nCols), refCount(other.refCount) {
+        // Increment the reference count
+        if (refCount) {
+            (*refCount)++;
+        }
     }
 
     ~COOMatrixGPU(){
-        CUDA_CHECK_ERROR(cudaFree(rowIndx));
-        CUDA_CHECK_ERROR(cudaFree(colIndx));
-        CUDA_CHECK_ERROR(cudaFree(value));
-        CUDA_CHECK_ERROR(cudaFree(numNonZeros));
+        if(refCount && --(*refCount) == 0){
+            CUDA_CHECK_ERROR(cudaFree(rowIndx));
+            CUDA_CHECK_ERROR(cudaFree(colIndx));
+            CUDA_CHECK_ERROR(cudaFree(value));
+            CUDA_CHECK_ERROR(cudaFree(numNonZeros));
+        }
     }
 
     __device__ uint32_t getRowIndx(uint32_t i) const {return rowIndx[i];}
@@ -79,4 +94,5 @@ private:
     size_t *numNonZeros;
     size_t h_numNonZeros;
     size_t nRows, nCols;
+    std::atomic<int>* refCount = nullptr;
 };
