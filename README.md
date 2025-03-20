@@ -318,3 +318,9 @@ Note that bitsandbytes implementation contains 1 extra step for detecting the ou
 - Back to reading PMPP. I started reading Chapter 14 about **sparse matrix-vector multiplication**.
 - Implemented a **COOMatrix** class to represent sparse matrices in the COO format.
 - Implemented **SpMV** for COO matrices.
+
+## Day 39:
+- Implemented reference counting for COOMatrixGPU to prevent premature destruction (destructor is called and cuda memory is freed for rowsIdx, colIdx, and value after I pass my matrix by value to the kernel, which makes it unusable afterwards).
+- Continued reading about SpMV, specifically the **CSR** matrix format.
+- Implemented a **SpMV** for **CSR** matrices.
+- Started implementing the **CSRMatrix** class (will continue implementing it later).
