@@ -324,3 +324,7 @@ Note that bitsandbytes implementation contains 1 extra step for detecting the ou
 - Continued reading about SpMV, specifically the **CSR** matrix format.
 - Implemented a **SpMV** for **CSR** matrices.
 - Started implementing the **CSRMatrix** class (will continue implementing it later).
+
+## Day 40:
+- Completed the implementation of **CSRMatrixGPU**.
+- Implemented testing for **spvm_csr()**.
