@@ -328,3 +328,9 @@ Note that bitsandbytes implementation contains 1 extra step for detecting the ou
 ## Day 40:
 - Completed the implementation of **CSRMatrixGPU**.
 - Implemented testing for **spvm_csr()**.
+
+## Day 41:
+
+## Day 42:
+
+## Day 43:
